@@ -10,10 +10,40 @@ Content-Type: application/json
 
 
 ###
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+    "username": "tester",
+    "email": "tester@example.com",
+    "password": "testpassword"
+}
+
+
+###
 POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
     "email": "test@example.com",
     "password": "password123"
+}
+
+###
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+    "email": "tester@example.com",
+    "password": "testpassword"
+}
+
+###
+POST http://localhost:5000/api/posts
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4NzNmMzlmMDk0MzM3NDg3Y2U5ZGE5MyIsImlhdCI6MTc1MjQyOTY3MiwiZXhwIjoxNzUyNDMzMjcyfQ.T5Vplnmra67w_tpmK2frN9d-ER70UMyNIBYpe6cdubQ
+
+{
+    "title": "İlk Blog Yazım",
+    "content": "Bu benim Docker ve Node.js ile oluşturduğum ilk harika blog yazım!"
 }
