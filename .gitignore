@@ -1,0 +1,10 @@
+.env
+# Genel .env dosyaları
+node_modules/
+# Ana node_modules (eğer varsa, normalde olmaz)
+.DS_Store
+# macOS specific
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Sadece genel bir başlangıç, alt klasörler için daha spesifik olabilir

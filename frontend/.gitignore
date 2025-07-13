@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# Vue uygulamasının derlenmiş çıktısı
+.env
+# Frontend'in .env dosyası
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
