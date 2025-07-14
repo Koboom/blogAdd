@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs'); // Şifre hash'lemek için
+const jwt = require('jsonwebtoken'); // JWT için (artık doğru yerde!)
 
 const UserSchema = new mongoose.Schema({
     username: {
         type: String,
         required: [true, 'Kullanıcı adı gerekli'],
         unique: true,
-        trim: true, // Baştaki ve sondaki boşlukları kaldırır
+        trim: true,
         minlength: [3, 'Kullanıcı adı en az 3 karakter olmalı']
     },
     email: {
@@ -14,16 +15,26 @@ const UserSchema = new mongoose.Schema({
         required: [true, 'E-posta adresi gerekli'],
         unique: true,
         trim: true,
-        match: [/.+@.+\..+/, 'Geçerli bir e-posta adresi girin'] // E-posta formatını kontrol eder
+        match: [/.+@.+\..+/, 'Geçerli bir e-posta adresi girin']
     },
     password: {
         type: String,
-        required: [true, 'Şifre gerekli'],
-        minlength: [6, 'Şifre en az 6 karakter olmalı']
+        // Google ile giriş yapan kullanıcılar için şifre alanı zorunlu olmayabilir.
+        // Bu yüzden 'required' kuralını burada varsayılan olarak kaldırdık.
+        // Ancak, yerel kayıt yapan kullanıcılar için kontrolü Controller'da yaparız.
+        // Örneğin: Local kayıt yaparken şifre gönderilmediyse hata fırlatabiliriz.
+        minlength: [6, 'Şifre en az 6 karakter olmalı'],
+        select: false // Varsayılan olarak parola sorgularda geri döndürülmez (güvenlik)
+    },
+    googleId: { // Google ile giriş yapan kullanıcılar için benzersiz Google ID'si
+        type: String,
+        unique: true, // Her Google ID'si sadece bir kullanıcıya ait olmalı
+        sparse: true   // Bu alan sadece Google ile giriş yapanlar için var, diğerleri için boş olabilir.
+                       // Unique kuralını sadece alanı olan belgeler için uygular.
     },
     role: {
         type: String,
-        enum: ['user', 'admin'], // Kullanıcı rolleri
+        enum: ['user', 'admin'],
         default: 'user'
     },
     createdAt: {
@@ -32,20 +43,33 @@ const UserSchema = new mongoose.Schema({
     }
 });
 
-// Şifreyi kaydetmeden önce hash'le (middleware)
+// Middleware: Şifreyi kaydetmeden önce hash'le
 UserSchema.pre('save', async function(next) {
-    // Şifre değiştirilmediyse veya yeni oluşturulmuyorsa, bir sonraki adıma geç
-    if (!this.isModified('password')) {
+    // Şifre değiştirilmediyse VEYA şifre alanı yoksa (yani Google ile giriş yapılıyorsa), bir sonraki adıma geç
+    // Google ile kayıt olan bir kullanıcıda 'password' alanı hiç gönderilmeyebilir.
+    if (!this.isModified('password') || !this.password) {
         return next();
     }
-    const salt = await bcrypt.genSalt(10); // 10 karakterlik bir tuz oluştur
-    this.password = await bcrypt.hash(this.password, salt); // Şifreyi tuzla hash'le
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
     next();
 });
 
-// Kullanıcının girdiği şifreyi, hashlenmiş şifreyle karşılaştırma metodu
+// Metod: Kullanıcının girdiği şifreyi, hashlenmiş şifreyle karşılaştırma
 UserSchema.methods.matchPassword = async function(enteredPassword) {
+    // Eğer kullanıcının şifresi yoksa (örn. Google ile kayıtlı), karşılaştırma yapmaya gerek yok.
+    // Bu durumda false dönebiliriz.
+    if (!this.password) {
+        return false;
+    }
     return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Metod: JWT Token Oluşturma
+UserSchema.methods.getSignedJwtToken = function() {
+    return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRE || '1h' // .env'de yoksa 1 saat olarak ayarla
+    });
 };
 
 module.exports = mongoose.model('User', UserSchema);
