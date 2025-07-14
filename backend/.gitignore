@@ -1,6 +1,44 @@
+# Node.js bağımlılıkları
 node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Ortam değişkenleri dosyaları
 .env
-# Backend'in .env dosyası
+.env.local
+.env.development
+.env.production
+backend/.env # Backend'in içindeki .env dosyası
+frontend/.env # Frontend'in içindeki .env dosyası
+
+# API test istek dosyaları ve VS Code eklenti dosyaları (HASSAS BİLGİLER İÇEREBİLİR)
+requests.http # Eğer ana dizinde olsaydı
+backend/requests.http # Backend klasörü içindeki requests.http dosyası
+frontend/requests.http # Frontend klasörü içindeki requests.http dosyası
+*.http
+*.rest
+.vscode/*.http
+.vscode/*.rest
+.vscode/*.code-snippets # VS Code snippet'leri
+.vscode/*.json # VS Code ayarları
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Log ve Debug Dosyaları
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Üretim için derlenmiş Frontend dosyaları (React build çıktısı gibi)
+build/
+dist/
+
+# İşletim Sistemi ve IDE Özel Dosyaları
+.DS_Store
+Thumbs.db
+.idea/ # IntelliJ / WebStorm IDE dosyaları
+.project # Eclipse IDE dosyaları
+.vscode/ # Genel VS Code ayar klasörü (dikkatli olun, eğer önemli shared ayarlarınız varsa)
