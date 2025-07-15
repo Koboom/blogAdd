@@ -55,7 +55,7 @@ const loginUser = async (req, res) => {
 
     try {
         // E-posta ile kullanıcıyı bul
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).select('+password'); // Şifre alanını da dahil et (varsayılan olarak select: false)
 
         // Kullanıcı yoksa veya şifre eşleşmiyorsa hata döndür
         if (!user || !(await user.matchPassword(password))) {

@@ -4,6 +4,7 @@ const connectDB = require('../config/db'); // db.js'den veritabanı bağlantıs�
 const cors = require('cors');
 const authRoutes = require('../routes/authRoutes');
 const postRoutes = require('../routes/postRoutes');
+const favoriteRoutes = require('../routes/favoriteRoutes');
 
 // <<< YENİ İMPORTLAR BAŞLANGICI >>>
 const passport = require('passport'); // Passport.js eklendi
@@ -70,6 +71,8 @@ app.use('/api/auth', authRoutes);
 // Post rotalarını kullan
 app.use('/api/posts', postRoutes);
 
+// Favori rotalarını kullan
+app.use('/api/posts', favoriteRoutes);
 
 // <<< YENİ: Google OAuth Rotları Başlangıcı >>>
 // Google OAuth'a yönlendirme rotası

@@ -47,7 +47,7 @@ const UserSchema = new mongoose.Schema({
 UserSchema.pre('save', async function(next) {
     // Şifre değiştirilmediyse VEYA şifre alanı yoksa (yani Google ile giriş yapılıyorsa), bir sonraki adıma geç
     // Google ile kayıt olan bir kullanıcıda 'password' alanı hiç gönderilmeyebilir.
-    if (!this.isModified('password') || !this.password) {
+    if (!this.isModified('password')) {
         return next();
     }
     const salt = await bcrypt.genSalt(10);

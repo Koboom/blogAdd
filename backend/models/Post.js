@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+// const slugify = require('slugify'); // Eğer slugify kullanacaksanız uncomment yapın ve npm install slugify
 
 const PostSchema = new mongoose.Schema({
     title: {
@@ -9,32 +10,59 @@ const PostSchema = new mongoose.Schema({
     },
     content: {
         type: String,
-        required: [true, 'İçerik gerekli']
+        required: [true, 'İçerik gerekli'],
+        minlength: [20, 'İçerik en az 20 karakter olmalı'] // Eklenen minlength
     },
     author: {
-        type: mongoose.Schema.Types.ObjectId, // Yazarın ID'si
-        ref: 'User', // 'User' modeline referans verir
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
         required: true
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
+    // --- Yeni Eklenen veya İyileştirilen Alanlar ---
+    slug: {
+        type: String,
+        unique: true,
+        // sparse: true, // Eğer bazı postlarda slug olmayacaksa uncomment yapın
+        trim: true
     },
-    updatedAt: {
-        type: Date,
-        default: Date.now
+    image: {
+        type: String,
+        default: 'https://via.placeholder.com/600x400?text=Blog+Post'
+    },
+    category: {
+        type: String,
+        enum: ['Genel', 'Teknoloji', 'Seyahat', 'Yemek', 'Yaşam', 'Spor'],
+        default: 'Genel'
+    },
+    likes: {
+        type: Number,
+        default: 0 // Varsayılan olarak 0
+    },
+    tags: {
+        type: [String],
+        default: []
+    },
+    isPublished: {
+        type: Boolean,
+        default: false
     }
+    // --- Yeni Eklenen veya İyileştirilen Alanlar Sonu ---
+}, {
+    timestamps: true // createdAt ve updatedAt alanlarını otomatik ekler
 });
 
-// Kaydetme öncesi veya güncelleme sonrası updatedAt alanını otomatik olarak güncelle
+// Kaydetme öncesi: Slug oluşturma ve isPublished true ise publishedAt ayarlama
 PostSchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    next();
-});
+    // Slug oluşturma/güncelleme (eğer başlık değiştiyse)
+    // if (this.isModified('title') && this.title) {
+    //     this.slug = slugify(this.title, { lower: true, strict: true });
+    // }
 
-// Opsiyonel: findOneAndUpdate veya updateOne gibi metotlarda da updatedAt'i güncellemek için
-PostSchema.pre('findOneAndUpdate', function(next) {
-    this.set({ updatedAt: Date.now() });
+    // Eğer 'isPublished' true olduysa ve 'publishedAt' ayarlanmadıysa, şimdiki zamanı ayarla
+    // Bu mantık PostController'da da ele alınabilir
+    // if (this.isModified('isPublished') && this.isPublished && !this.publishedAt) {
+    //    this.publishedAt = Date.now();
+    // }
     next();
 });
 
