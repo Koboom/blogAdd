@@ -2,18 +2,37 @@
   <header>
     <nav>
       <router-link to="/">Anasayfa</router-link> |
-      <router-link to="/login">Giriş Yap</router-link> |
-      <router-link to="/register">Kayıt Ol</router-link> |
-      <router-link to="/profile">Profil</router-link>
-      </nav>
+
+      <template v-if="!authStore.isAuthenticated">
+        <router-link to="/login">Giriş Yap</router-link> |
+        <router-link to="/register">Kayıt Ol</router-link>
+      </template>
+
+      <template v-else>
+        <router-link to="/profile">Profil</router-link> |
+        <a href="#" @click.prevent="handleLogout">Çıkış Yap ({{ authStore.currentUser?.username }})</a>
+      </template>
+    </nav>
   </header>
   <main>
-    <router-view /> </main>
+    <router-view />
+  </main>
 </template>
 
 <script setup>
-// Eğer Options API kullanıyorsanız, script setup'ı kaldırıp Options API syntax'ını kullanabilirsiniz.
-// Şimdilik varsayılan Vite kurulumuyla gelen setup script'i kalsın.
+import { useAuthStore } from './stores/auth'; // Auth store'u içeri aktar
+import { onMounted } from 'vue'; // onMounted hook'unu içeri aktar
+
+const authStore = useAuthStore();
+
+// Uygulama yüklendiğinde veya yenilendiğinde kimlik doğrulama durumunu kontrol et
+onMounted(() => {
+  authStore.checkAuth();
+});
+
+const handleLogout = () => {
+  authStore.logout();
+};
 </script>
 
 <style scoped>
