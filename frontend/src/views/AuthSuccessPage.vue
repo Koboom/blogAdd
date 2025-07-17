@@ -1,25 +1,34 @@
-<template>
-  <div>
-    <h1>Google ile Giriş Başarılı!</h1>
-    <p>Token işleniyor...</p>
-  </div>
-</template>
 <script>
+import { useAuthStore } from '../stores/auth'; // Auth store'u içeri aktar
+
 export default {
   name: 'AuthSuccessPage',
   mounted() {
-    // Backend'den gelen token'ı URL'den al
+    const authStore = useAuthStore(); // Auth store'u kullan
+
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const userDataString = urlParams.get('user'); // Backend'den user bilgisini de göndereceğimizi varsayalım
 
     if (token) {
+      let user = null;
+      if (userDataString) {
+        try {
+          user = JSON.parse(decodeURIComponent(userDataString)); // URL'den gelen user bilgisini ayrıştır
+        } catch (e) {
+          console.error("Kullanıcı verisi ayrıştırılırken hata oluştu:", e);
+        }
+      }
+
       console.log('Alınan Token:', token);
-      // Token'ı localStorage'a kaydet (veya Vuex/Pinia'ya)
-      localStorage.setItem('token', token);
-      // Kullanıcıyı ana sayfaya veya başka bir rotaya yönlendir
-      this.$router.push('/');
+      console.log('Alınan Kullanıcı Verisi:', user);
+
+      // Pinia store aracılığıyla token ve kullanıcıyı kaydet
+      authStore.setAuthFromGoogle(token, user);
+      this.$router.push('/'); // Başarılı girişte ana sayfaya yönlendir
     } else {
       console.error('URL\'de token bulunamadı.');
+      authStore.error = 'Google ile giriş başarısız oldu: Token bulunamadı.';
       this.$router.push('/login'); // Token yoksa giriş sayfasına yönlendir
     }
   }
