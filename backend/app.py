@@ -9,6 +9,14 @@ from functools import wraps
 import os
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
+import base64 # Eklendi
+import json   # Eklendi
+import logging # Eklendi
+
+# Authlib loglama seviyesini DEBUG olarak ayarla (zaten vardı, tekrar ekledik)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('authlib').setLevel(logging.DEBUG)
+
 
 # .env dosyasını yükle
 load_dotenv()
@@ -38,8 +46,9 @@ google = oauth.register(
     authorize_params=None,
     api_base_url='https://www.googleapis.com/oauth2/v1/',
     client_kwargs={'scope': 'openid profile email'},
-    jwks_uri='https://www.googleapis.com/oauth2/v3/certs', # Doğru JWKS URI
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration' # OpenID Connect için gerekli
+    jwks_uri='https://accounts.google.com/.well-known/openid-configuration/jwks',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    issuer='https://accounts.google.com' # Önceki versiyona geri döndük, burayı değiştirmeyin
 )
 
 # --- Modeller ---
@@ -155,53 +164,73 @@ def google_login():
 
 @app.route('/api/auth/google/callback')
 def google_callback():
+    token_response = None
     try:
-        token = google.authorize_access_token()
-        userinfo = google.parse_id_token(token)
+        token_response = google.authorize_access_token()
+        print(f"DEBUG: Google API'den alınan token yanıtı (authorize_access_token): {token_response}")
 
-        email = userinfo.get('email')
-        username = userinfo.get('name')
-        google_id = userinfo.get('sub') # sub: Google'ın kullanıcıya özel benzersiz ID'si
-
-        user = User.query.filter_by(google_id=google_id).first()
-        if not user:
-            # E-posta zaten sistemde kayıtlı mı kontrol et (normal kayıt ile çakışma olmaması için)
-            existing_user_with_email = User.query.filter_by(email=email).first()
-            if existing_user_with_email:
-                # Mevcut kullanıcının google_id'sini güncelle
-                existing_user_with_email.google_id = google_id
-                db.session.commit()
-                user = existing_user_with_email
-            else:
-                # Yeni kullanıcı oluştur (Google ID ile)
-                # Google ile kaydolurken şifre alanı boş bırakılır
-                user = User(username=username, email=email, google_id=google_id)
-                db.session.add(user)
-                db.session.commit()
-
-        # Kullanıcı için JWT oluştur
-        jwt_token = jwt.encode({
-            'user_id': user.id,
-            'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
-        }, app.config['SECRET_KEY'], algorithm="HS256")
-
-        # Frontend'e token ve kullanıcı bilgileriyle yönlendir
-        # Frontend'de bu bilgileri alıp localStorage'a kaydedecek bir rota (`/auth-success`)
-        # Kullanıcı adını URL'ye eklemek yerine, frontend'in store'una kaydetmesi daha güvenli
-        response = make_response(f"""
-        <script>
-            localStorage.setItem('token', '{jwt_token}');
-            localStorage.setItem('user', JSON.stringify({user.to_dict()}));
-            window.location.href = '/auth-success';
-        </script>
-        """)
-        response.headers['Content-Type'] = 'text/html'
-        return response
+        # Eğer buraya geldiysek, authorize_access_token başarılı oldu demektir.
+        # Şimdi id_token'ı parse etmeye çalışalım.
+        userinfo = google.parse_id_token(token_response)
+        print(f"DEBUG: Başarıyla parse edilen userinfo: {userinfo}")
 
     except Exception as e:
-        print(f"Google OAuth hatası: {e}")
-        # Hata durumunda frontend'in login sayfasına yönlendir veya hata mesajı göster
+        print(f"Google OAuth hatası: {e}") # authorize_access_token veya parse_id_token aşamasında hata
+
+        # Hata durumunda bile token_response'u ve id_token payload'ını yazdırmaya çalışalım
+        if token_response:
+            print(f"DEBUG: Hata anında token_response içeriği: {token_response}")
+            id_token_jwt = token_response.get('id_token')
+            if id_token_jwt:
+                try:
+                    parts = id_token_jwt.split('.')
+                    if len(parts) == 3:
+                        payload_base64 = parts[1] + '==' * (len(parts[1]) % 4)
+                        decoded_payload = base64.urlsafe_b64decode(payload_base64).decode('utf-8')
+                        payload_data = json.loads(decoded_payload)
+                        print(f"DEBUG: id_token payload (manuel decode, hata anında): {payload_data}")
+                    else:
+                        print(f"DEBUG: id_token JWT formatında değil veya eksik parça sayısı: {len(parts)}")
+                except Exception as decode_e:
+                    print(f"DEBUG: id_token payload manuel decode hatası (hata anında): {decode_e}")
+            else:
+                print("DEBUG: token_response içinde 'id_token' bulunamadı (hata anında).")
+        else:
+            print("DEBUG: token_response null (authorize_access_token hiç başarılı olmadı).")
+
         return jsonify({'message': f'Google girişi başarısız: {e}'}), 500
+
+    # Eğer buraya kadar geldiysek userinfo başarılı demektir
+    email = userinfo.get('email')
+    username = userinfo.get('name')
+    google_id = userinfo.get('sub')
+
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        existing_user_with_email = User.query.filter_by(email=email).first()
+        if existing_user_with_email:
+            existing_user_with_email.google_id = google_id
+            db.session.commit()
+            user = existing_user_with_email
+        else:
+            user = User(username=username, email=email, google_id=google_id)
+            db.session.add(user)
+            db.session.commit()
+
+    jwt_token = jwt.encode({
+        'user_id': user.id,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+
+    response = make_response(f"""
+    <script>
+        localStorage.setItem('token', '{jwt_token}');
+        localStorage.setItem('user', JSON.stringify({user.to_dict()}));
+        window.location.href = '/auth-success';
+    </script>
+    """)
+    response.headers['Content-Type'] = 'text/html'
+    return response
 
 
 # --- Post Rotları (Örnek) ---
@@ -258,7 +287,7 @@ def get_post(slug):
         'created_at': post.created_at.isoformat(),
         'user_id': post.user_id,
         'slug': post.slug,
-        'author_username': post.author.username # Yazar adını da ekledik
+        'author_username': post.author.username
     })
 
 # --- Kullanıcı Rotları (Örnek) ---
@@ -281,5 +310,5 @@ def get_user_profile(current_user):
 # Uygulama çalıştırma
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all() # Uygulama ilk çalıştığında veritabanı tablolarını oluştur (sadece geliştirme için)
+        db.create_all()
     app.run(debug=True, port=5000)
