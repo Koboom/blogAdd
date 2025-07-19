@@ -1,24 +1,24 @@
 <template>
   <div class="post-detail-container">
     <div v-if="postStore.loading" class="loading-message">Yazı yükleniyor...</div>
-    <div v-if="postStore.error" class="error-message">Hata: {{ postStore.error }}</div>
+    <div v-else-if="postStore.error" class="error-message">Hata: {{ postStore.error }}</div>
 
-    <div v-if="postStore.selectedPost" class="post-card">
-      <h1 class="post-title">{{ postStore.selectedPost.title }}</h1>
+    <div v-else-if="postStore.postDetail" class="post-card">
+      <h1 class="post-title">{{ postStore.postDetail.title }}</h1>
       <p class="post-meta">
-        Yazar: {{ postStore.selectedPost.user?.username || 'Bilinmiyor' }} |
-        Tarih: {{ formatDate(postStore.selectedPost.createdAt) }}
+        Yazar: {{ postStore.postDetail.author?.username || 'Bilinmiyor' }} |
+        Tarih: {{ formatDate(postStore.postDetail.createdAt) }}
       </p>
-      <div class="post-content-full">{{ postStore.selectedPost.content }}</div>
+      <div class="post-content-full">{{ postStore.postDetail.content }}</div>
 
       <div v-if="canModifyPost" class="post-actions">
-        <router-link :to="`/posts/${postStore.selectedPost._id}/edit`" class="edit-button">
+        <router-link :to="`/posts/${postStore.postDetail._id}/edit`" class="edit-button">
           Düzenle
         </router-link>
-        <button @click="confirmDelete" class="delete-button">Sil</button>
+        <button @click="confirmDelete(postStore.postDetail._id, postStore.postDetail.title)" class="delete-button">Sil</button>
       </div>
     </div>
-    <div v-else-if="!postStore.loading && !postStore.error" class="no-post-message">
+    <div v-else class="no-post-message">
       Yazı bulunamadı.
     </div>
 
@@ -27,43 +27,46 @@
 </template>
 
 <script setup>
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePostStore } from '../stores/post';
 import { useAuthStore } from '../stores/auth';
 
-const route = useRoute(); // URL'den parametreleri almak için
-const router = useRouter(); // Yönlendirme için
+const route = useRoute();
+const router = useRouter();
 const postStore = usePostStore();
 const authStore = useAuthStore();
 
-const postId = route.params.id; // URL'den yazı ID'sini al
-
-onMounted(() => {
-  if (postId) {
-    postStore.fetchPostById(postId);
+// Watch kullanarak route.params.id değiştiğinde post'u tekrar yükle
+// Bu, bir post sayfasından başka bir post sayfasına doğrudan geçiş yapıldığında önemlidir.
+watch(() => route.params.id, (newId) => {
+  if (newId) {
+    postStore.fetchPostById(newId);
   }
-});
+}, { immediate: true });
 
 // Kullanıcının yazıyı düzenleme/silme yetkisi olup olmadığını kontrol et
 const canModifyPost = computed(() => {
-  if (!authStore.isAuthenticated || !postStore.selectedPost) {
+  // Düzeltildi: postStore.selectedPost yerine postStore.postDetail kullanıldı
+  if (!authStore.isAuthenticated || !postStore.postDetail || !authStore.user) {
     return false;
   }
   // Yazının sahibi mi veya admin mi?
+  // Düzeltildi: postStore.selectedPost.author._id yerine postStore.postDetail.author._id
   return (
-    authStore.user?._id === postStore.selectedPost.user?._id || authStore.isAdmin
+    authStore.user._id === postStore.postDetail.author._id || authStore.isAdmin
   );
 });
 
-const confirmDelete = async () => {
-  if (confirm('Bu yazıyı silmek istediğinizden emin misiniz?')) {
+// confirmDelete fonksiyonu aynı kalabilir
+const confirmDelete = async (postId, postTitle) => {
+  if (confirm(`"${postTitle}" başlıklı yazıyı silmek istediğinizden emin misiniz?`)) {
     try {
       await postStore.deletePost(postId);
       alert('Yazı başarıyla silindi!');
-      router.push('/'); // Yazı silindikten sonra ana sayfaya dön
+      router.push('/');
     } catch (err) {
-      alert('Yazı silinirken bir hata oluştu.');
+      alert(`Yazı silinirken bir hata oluştu: ${err.message || 'Bilinmeyen Hata'}`);
       console.error('Silme hatası:', err);
     }
   }
@@ -77,6 +80,7 @@ const formatDate = (dateString) => {
 </script>
 
 <style scoped>
+/* Stiller aynı kalacak */
 .post-detail-container {
   max-width: 800px;
   margin: 50px auto;
@@ -89,7 +93,7 @@ const formatDate = (dateString) => {
 
 .post-card {
   margin-bottom: 30px;
-  border-bottom: 1px solid #eee;
+  /* border-bottom: 1px solid #eee; */
   padding-bottom: 25px;
 }
 
@@ -97,7 +101,7 @@ const formatDate = (dateString) => {
   font-size: 2.5rem;
   color: #2c3e50;
   margin-bottom: 15px;
-  word-wrap: break-word; /* Uzun başlıkları kır */
+  word-wrap: break-word;
 }
 
 .post-meta {
@@ -110,7 +114,7 @@ const formatDate = (dateString) => {
   font-size: 1.1rem;
   line-height: 1.8;
   color: #444;
-  white-space: pre-wrap; /* İçerik biçimlendirmesini koru */
+  white-space: pre-wrap;
   margin-bottom: 30px;
 }
 
@@ -125,8 +129,8 @@ const formatDate = (dateString) => {
   border-radius: 5px;
   font-weight: bold;
   transition: background-color 0.3s ease;
-  text-decoration: none; /* router-link için */
-  display: inline-block; /* router-link için */
+  text-decoration: none;
+  display: inline-block;
   text-align: center;
 }
 

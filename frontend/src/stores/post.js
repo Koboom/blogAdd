@@ -32,19 +32,31 @@ export const usePostStore = defineStore('post', {
     },
 
     // Belirli bir blog yazısını ID'ye göre getir
-    async fetchPostById(id) {
-      this.loading = true;
-      this.error = null;
-      try {
+   // frontend/src/stores/post.js
+
+// Belirli bir blog yazısını ID'ye göre getir
+async fetchPostById(id) {
+    this.loading = true;
+    this.error = null; // Önceki hataları temizle
+    this.currentPost = null; // Önceki post'u temizle, yeni veri için hazırla
+
+    console.log(`[Pinia Store] fetchPostById çağrıldı, ID: ${id}`); // DEBUG LOG
+    console.log(`[Pinia Store] Başlangıç loading: ${this.loading}, currentPost: ${this.currentPost}`); // DEBUG LOG
+
+    try {
         const response = await apiClient.get(`/posts/${id}`);
-        this.currentPost = response.data;
-      } catch (error) {
+        this.currentPost = response.data; // Burası önemli! Backend'den gelen veriyi atıyoruz.
+        console.log("[Pinia Store] Veri başarıyla çekildi, response.data:", response.data); // DEBUG LOG
+        console.log("[Pinia Store] currentPost güncellendi:", this.currentPost); // DEBUG LOG
+    } catch (error) {
         this.error = error.response?.data?.message || 'Gönderi detayları getirilirken bir hata oluştu.';
-        console.error(`Error fetching post ${id}:`, error);
-      } finally {
+        this.currentPost = null; // Hata durumunda currentPost'u boş bırak
+        console.error(`[Pinia Store] fetchPostById hatası ID ${id}:`, error); // DEBUG LOG
+    } finally {
         this.loading = false;
-      }
-    },
+        console.log(`[Pinia Store] fetchPostById tamamlandı. Loading: ${this.loading}, currentPost:`, this.currentPost); // DEBUG LOG
+    }
+},
 
     // Yeni bir blog yazısı oluştur
     async createPost(postData) {
