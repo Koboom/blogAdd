@@ -10,7 +10,7 @@
         <label for="password">Şifre:</label>
         <input type="password" id="password" v-model="password" required autocomplete="current-password">
       </div>
-      <button type="submit" :disabled="authStore.loading">
+      <button type="submit" :disabled="authStore.loading" class="submit-button">
         {{ authStore.loading ? 'Giriş Yapılıyor...' : 'Giriş Yap' }}
       </button>
     </form>
@@ -30,18 +30,24 @@
 <script setup>
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { useRouter } from 'vue-router'; // useRouter import edildiğinden emin olun
 
 const authStore = useAuthStore();
+const router = useRouter(); // useRouter başlatıldı
 
 const email = ref('');
 const password = ref('');
 
 const handleLogin = async () => {
+  authStore.clearError(); // Önceki hataları temizle
   try {
     await authStore.login({ email: email.value, password: password.value });
-    // Giriş başarılı olursa router otomatik olarak ana sayfaya yönlendirecek (auth.js içinde tanımlı)
+    // Giriş başarılı olursa ve hata yoksa anasayfaya yönlendir
+    if (!authStore.error) {
+      router.push('/'); // <-- Anasayfaya yönlendirme satırı
+    }
   } catch (err) {
-    // Hata Pinia store tarafından yönetiliyor ve error mesajı gösteriliyor
+    // Hata zaten Pinia store tarafından yönetiliyor, burada sadece konsola yazdırıyoruz.
     console.error('Giriş hatası:', err);
   }
 };
@@ -98,7 +104,7 @@ input[type="text"] {
   font-size: 1rem;
 }
 
-button[type="submit"] {
+.submit-button { /* Stil sınıfı eklendi */
   background-color: #007bff;
   color: white;
   padding: 12px 20px;
@@ -110,11 +116,11 @@ button[type="submit"] {
   transition: background-color 0.3s ease;
 }
 
-button[type="submit"]:hover:not(:disabled) {
+.submit-button:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
-button[type="submit"]:disabled {
+.submit-button:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
 }

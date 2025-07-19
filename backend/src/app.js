@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: false })); // URL-encoded istek gövdeler
 
 // CORS middleware'i - Vue.js geliştirme portuna göre ayarlandı
 app.use(cors({
-    origin: 'http://localhost:8080', // Vue.js uygulamanızın çalışacağı port
+    origin: 'http://localhost:5173', // Vue.js uygulamanızın çalışacağı port
     credentials: true // Kimlik bilgileri (çerezler, yetkilendirme başlıkları) için izin ver
 }));
 

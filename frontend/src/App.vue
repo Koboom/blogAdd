@@ -1,66 +1,84 @@
 <template>
-  <header>
-    <nav>
-      <router-link to="/">Anasayfa</router-link> |
-
-      <template v-if="!authStore.isAuthenticated">
-        <router-link to="/login">Giriş Yap</router-link> |
-        <router-link to="/register">Kayıt Ol</router-link>
-      </template>
-
-      <template v-else>
-        <router-link to="/profile">Profil</router-link> |
-        <a href="#" @click.prevent="handleLogout">Çıkış Yap ({{ authStore.currentUser?.username }})</a>
-      </template>
+  <div id="app">
+    <nav class="navbar">
+      <div class="navbar-brand">
+        <router-link to="/">BlogApp</router-link>
+      </div>
+      <div class="navbar-links">
+        <router-link to="/">Anasayfa</router-link>
+        <router-link v-if="authStore.isAuthenticated" to="/create">Yeni Yazı Oluştur</router-link>
+        <router-link v-if="authStore.isAuthenticated" to="/profile">Profil</router-link>
+        <router-link v-if="!authStore.isAuthenticated" to="/login">Giriş Yap</router-link>
+        <router-link v-if="!authStore.isAuthenticated" to="/register">Kayıt Ol</router-link>
+        <a v-if="authStore.isAuthenticated" @click="handleLogout" class="logout-link">
+          Çıkış Yap ({{ authStore.userNameOrEmail }})
+        </a>
+      </div>
     </nav>
-  </header>
-  <main>
     <router-view />
-  </main>
+  </div>
 </template>
 
 <script setup>
-import { useAuthStore } from './stores/auth'; // Auth store'u içeri aktar
-import { onMounted } from 'vue'; // onMounted hook'unu içeri aktar
+import { useAuthStore } from './stores/auth';
+import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
+const router = useRouter();
 
-// Uygulama yüklendiğinde veya yenilendiğinde kimlik doğrulama durumunu kontrol et
-onMounted(() => {
-  authStore.checkAuth();
-});
-
-const handleLogout = () => {
-  authStore.logout();
+const handleLogout = async () => {
+  await authStore.logout();
+  router.push('/login'); // Çıkış yapınca giriş sayfasına yönlendir
 };
 </script>
 
-<style scoped>
-header {
-  line-height: 1.5;
-  padding: 1rem;
-  background-color: #f8f8f8;
-  border-bottom: 1px solid #eee;
+<style>
+/* Stil kodlarınız burada devam ediyor... */
+#app {
+  font-family: Avenir, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #2c3e50;
+  margin-top: 60px; /* Navbar için boşluk */
 }
 
-nav {
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #333;
+  padding: 15px 30px;
+  color: white;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-  font-size: 1rem;
-  text-align: center;
-  margin-top: 1rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
+.navbar-brand a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.8rem;
+  font-weight: bold;
 }
 
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
+.navbar-links a, .navbar-links .logout-link {
+  color: white;
+  text-decoration: none;
+  margin-left: 25px;
+  font-size: 1.1rem;
+  transition: color 0.3s ease;
+  cursor: pointer;
 }
 
-nav a:first-of-type {
-  border: 0;
+.navbar-links a:hover, .navbar-links .logout-link:hover {
+  color: #42b983; /* Vue yeşili */
+}
+
+.logout-link {
+  font-style: italic;
+  font-weight: normal;
 }
 </style>

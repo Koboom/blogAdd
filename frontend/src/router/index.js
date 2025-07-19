@@ -1,13 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
-
-// Gelecekte oluşturacağımız bileşenler için şimdilik yer tutucular
-import HomePage from '../views/HomePage.vue'; // Bu dosyayı sonra oluşturacağız
-import LoginPage from '../views/LoginPage.vue'; // Bu dosyayı sonra oluşturacağız
-import RegisterPage from '../views/RegisterPage.vue'; // Bu dosyayı sonra oluşturacağız
-import AuthSuccessPage from '../views/AuthSuccessPage.vue'; // Bu dosyayı sonra oluşturacağız
-import PostDetailPage from '../views/PostDetailPage.vue'; // Bu dosyayı sonra oluşturacağız
-import UserProfilePage from '../views/UserProfilePage.vue'; // Bu dosyayı sonra oluşturacağız
-import NotFoundPage from '../views/NotFoundPage.vue'; // Bu dosyayı sonra oluşturacağız
+import HomePage from '../views/HomePage.vue';
+import LoginPage from '../views/LoginPage.vue';
+import RegisterPage from '../views/RegisterPage.vue';
+import AuthSuccessPage from '../views/AuthSuccessPage.vue';
+import PostDetailPage from '../views/PostDetailPage.vue';
+import UserProfilePage from '../views/UserProfilePage.vue'; // Henüz oluşturulmadıysa bile yer tutucu
+import NotFoundPage from '../views/NotFoundPage.vue'; // Henüz oluşturulmadıysa bile yer tutucu
+import CreatePostPage from '../views/CreatePostPage.vue'; // <-- Bu satırı ekleyin/doğrulayın
+import { useAuthStore } from '../stores/auth'; // <-- Bu satırı ekleyin/doğrulayın (Pinia auth store'u)
 
 const routes = [
   {
@@ -18,12 +18,14 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: LoginPage
+    component: LoginPage,
+    meta: { requiresGuest: true } // Sadece oturum açmamış kullanıcılar erişebilir
   },
   {
     path: '/register',
     name: 'Register',
-    component: RegisterPage
+    component: RegisterPage,
+    meta: { requiresGuest: true } // Sadece oturum açmamış kullanıcılar erişebilir
   },
   {
     path: '/auth-success',
@@ -31,15 +33,29 @@ const routes = [
     component: AuthSuccessPage
   },
   {
-    path: '/posts/:slug', // Dinamik rota, slug ile gönderi detayına git
-    name: 'PostDetail',
-    component: PostDetailPage
+    path: '/create', // <-- Yeni yazı oluşturma rotası
+    name: 'CreatePost',
+    component: CreatePostPage,
+    meta: { requiresAuth: true } // Bu rota için kimlik doğrulama gereksinimi
   },
   {
-    path: '/profile', // Kullanıcı profili sayfası
+    path: '/posts/:id', // <-- BURAYI DÜZELTİN: ":slug" yerine ":id" ve props: true ekleyin
+    name: 'PostDetail',
+    component: PostDetailPage,
+    props: true // URL parametresini (id) bileşene prop olarak geçir
+  },
+  {
+    path: '/profile',
     name: 'Profile',
     component: UserProfilePage,
-    meta: { requiresAuth: true } // Bu rota için kimlik doğrulama gereksinimi ekleyeceğiz
+    meta: { requiresAuth: true }
+  },
+  // Blog yazısı düzenleme rotası (henüz EditPostPage'i oluşturmadık ama rotası hazır olsun)
+  {
+    path: '/posts/:id/edit', // Yeni rota: Blog yazısı düzenleme
+    name: 'EditPost',
+    component: () => import('../views/EditPostPage.vue'), // Lazy yükleme, dosyayı sonra oluşturacağız
+    meta: { requiresAuth: true, requiresAuthorOrAdmin: true } // Yetki kontrolü ekleyeceğiz
   },
   // Tanımlanmayan tüm rotalar için yakalama
   {
@@ -56,16 +72,15 @@ const router = createRouter({
 
 // Kimlik doğrulama kontrolü (meta.requiresAuth olan rotalar için)
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token'); // Token'ı localStorage'dan alacağız
+  const authStore = useAuthStore(); // <-- Bu satırı ekleyin
+  const isAuthenticated = authStore.isAuthenticated; // <-- Burayı değiştirin
 
-  if (to.matched.some(record => record.meta.requiresAuth) && !token) {
-    // Bu rota kimlik doğrulama gerektiriyor ve token yoksa giriş sayfasına yönlendir
+  if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'Login' });
-  } else if ((to.name === 'Login' || to.name === 'Register') && token) {
-    // Eğer zaten giriş yapmışsa ve tekrar giriş/kayıt sayfalarına gitmeye çalışırsa ana sayfaya yönlendir
+  } else if (to.meta.requiresGuest && isAuthenticated) {
     next({ name: 'Home' });
   } else {
-    next(); // Her şey yolundaysa devam et
+    next();
   }
 });
 
