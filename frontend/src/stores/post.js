@@ -1,7 +1,6 @@
 // stores/post.js
 import { defineStore } from 'pinia';
 import apiClient from '../api'; // apiClient instance'ımızı içeri aktar
-// import router from '../router'; // Yönlendirme için router'ı içeri aktarabiliriz, ancak şimdilik gerekli değil
 
 export const usePostStore = defineStore('post', {
   state: () => ({
@@ -53,10 +52,9 @@ export const usePostStore = defineStore('post', {
       this.error = null;
       try {
         const response = await apiClient.post('/posts', postData);
-        // Yeni oluşturulan gönderiyi posts dizisine ekle (isteğe bağlı, ama genellikle iyi bir UX)
-        this.posts.push(response.data.post); // Backend'in 'post' anahtarıyla döndürdüğünü varsayıyoruz
-        this.currentPost = response.data.post; // Yeni oluşturulan gönderiyi currentPost olarak ayarla
-        // Yönlendirme yapmak isterseniz: router.push(`/posts/${response.data.post.slug}`);
+        // Backend'den doğrudan post objesi geliyor (populatedPost)
+        this.posts.unshift(response.data); // En üste ekle
+        this.currentPost = response.data; // Yeni oluşturulan gönderiyi currentPost olarak ayarla
         return response.data; // Bileşene yanıtı döndür
       } catch (error) {
         this.error = error.response?.data?.message || 'Gönderi oluşturulurken bir hata oluştu.';
@@ -74,7 +72,8 @@ export const usePostStore = defineStore('post', {
       try {
         const response = await apiClient.put(`/posts/${id}`, postData);
         // Güncellenen gönderiyi posts dizisinde bul ve güncelle
-        const index = this.posts.findIndex(post => post.id === id);
+        // post.id yerine post._id kullanıldı
+        const index = this.posts.findIndex(post => post._id === id); // DÜZELTİLDİ
         if (index !== -1) {
           this.posts[index] = response.data; // Backend'in güncellenmiş objeyi döndürdüğünü varsayıyoruz
         }
@@ -96,9 +95,9 @@ export const usePostStore = defineStore('post', {
       try {
         await apiClient.delete(`/posts/${id}`);
         // Silinen gönderiyi posts dizisinden kaldır
-        this.posts = this.posts.filter(post => post.id !== id);
+        // post.id yerine post._id kullanıldı
+        this.posts = this.posts.filter(post => post._id !== id); // DÜZELTİLDİ
         this.currentPost = null; // Silinen gönderi artık currentPost olamaz
-        // Yönlendirme yapmak isterseniz: router.push('/');
       } catch (error) {
         this.error = error.response?.data?.message || 'Gönderi silinirken bir hata oluştu.';
         console.error(`Error deleting post ${id}:`, error);

@@ -3,85 +3,125 @@ import HomePage from '../views/HomePage.vue';
 import LoginPage from '../views/LoginPage.vue';
 import RegisterPage from '../views/RegisterPage.vue';
 import AuthSuccessPage from '../views/AuthSuccessPage.vue';
+import CreatePostPage from '../views/CreatePostPage.vue'; // Yeni yazı oluşturma da EditPostPage tarafından ele alınacak
 import PostDetailPage from '../views/PostDetailPage.vue';
-import UserProfilePage from '../views/UserProfilePage.vue'; // Henüz oluşturulmadıysa bile yer tutucu
-import NotFoundPage from '../views/NotFoundPage.vue'; // Henüz oluşturulmadıysa bile yer tutucu
-import CreatePostPage from '../views/CreatePostPage.vue'; // <-- Bu satırı ekleyin/doğrulayın
-import { useAuthStore } from '../stores/auth'; // <-- Bu satırı ekleyin/doğrulayın (Pinia auth store'u)
+import EditPostPage from '../views/EditPostPage.vue'; // EditPostPage'i import ettik
+import UserProfilePage from '../views/UserProfilePage.vue';
+import NotFoundPage from '../views/NotFoundPage.vue';
+
+import { useAuthStore } from '../stores/auth';
+import { usePostStore } from '../stores/post'; // Post store'u import et
 
 const routes = [
   {
     path: '/',
     name: 'Home',
-    component: HomePage
+    component: HomePage,
   },
   {
     path: '/login',
     name: 'Login',
     component: LoginPage,
-    meta: { requiresGuest: true } // Sadece oturum açmamış kullanıcılar erişebilir
+    meta: { requiresGuest: true },
   },
   {
     path: '/register',
     name: 'Register',
     component: RegisterPage,
-    meta: { requiresGuest: true } // Sadece oturum açmamış kullanıcılar erişebilir
+    meta: { requiresGuest: true },
   },
   {
     path: '/auth-success',
     name: 'AuthSuccess',
-    component: AuthSuccessPage
+    component: AuthSuccessPage,
   },
   {
-    path: '/create', // <-- Yeni yazı oluşturma rotası
+    // Yeni yazı oluşturma rotası (EditPostPage'i kullanır)
+    path: '/create',
     name: 'CreatePost',
-    component: CreatePostPage,
-    meta: { requiresAuth: true } // Bu rota için kimlik doğrulama gereksinimi
+    component: EditPostPage, // CreatePostPage yerine EditPostPage kullanıyoruz
+    meta: { requiresAuth: true },
   },
   {
-    path: '/posts/:id', // <-- BURAYI DÜZELTİN: ":slug" yerine ":id" ve props: true ekleyin
+    path: '/posts/:id',
     name: 'PostDetail',
     component: PostDetailPage,
-    props: true // URL parametresini (id) bileşene prop olarak geçir
+    props: true,
+  },
+  {
+    // Yazı düzenleme rotası
+    path: '/posts/:id/edit',
+    name: 'EditPost',
+    component: EditPostPage,
+    props: true,
+    meta: { requiresAuth: true, requiresAuthorOrAdmin: true },
   },
   {
     path: '/profile',
     name: 'Profile',
     component: UserProfilePage,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true },
   },
-  // Blog yazısı düzenleme rotası (henüz EditPostPage'i oluşturmadık ama rotası hazır olsun)
-  {
-    path: '/posts/:id/edit', // Yeni rota: Blog yazısı düzenleme
-    name: 'EditPost',
-    component: () => import('../views/EditPostPage.vue'), // Lazy yükleme, dosyayı sonra oluşturacağız
-    meta: { requiresAuth: true, requiresAuthorOrAdmin: true } // Yetki kontrolü ekleyeceğiz
-  },
-  // Tanımlanmayan tüm rotalar için yakalama
   {
     path: '/:catchAll(.*)',
     name: 'NotFound',
-    component: NotFoundPage
-  }
+    component: NotFoundPage,
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 });
 
-// Kimlik doğrulama kontrolü (meta.requiresAuth olan rotalar için)
-router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore(); // <-- Bu satırı ekleyin
-  const isAuthenticated = authStore.isAuthenticated; // <-- Burayı değiştirin
+// Gezinme korumaları
+router.beforeEach(async (to, from, next) => { // async ekledik, çünkü post detayını çekebiliriz
+  const authStore = useAuthStore();
+  const postStore = usePostStore(); // Post store'u da kullanacağız
 
+  const isAuthenticated = authStore.isAuthenticated;
+  const user = authStore.user;
+
+  // Giriş gerektiren sayfalar
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ name: 'Login' });
-  } else if (to.meta.requiresGuest && isAuthenticated) {
-    next({ name: 'Home' });
-  } else {
-    next();
+    next('/login');
+    return;
   }
+
+  // Giriş yapmış kullanıcıların erişemeyeceği sayfalar (Giriş/Kayıt)
+  if (to.meta.requiresGuest && isAuthenticated) {
+    next('/');
+    return;
+  }
+
+  // Yazar veya Admin gerektiren rotalar için özel kontrol (EditPost rotası için)
+  if (to.meta.requiresAuthorOrAdmin) {
+    if (!isAuthenticated) {
+        next('/login'); // Giriş yapmamışsa logine
+        return;
+    }
+
+    // Eğer rota bir yazıya özgü (örn: /posts/:id/edit) ise
+    if (to.params.id) {
+        await postStore.fetchPostById(to.params.id); // Yazıyı çek
+        const post = postStore.selectedPost;
+
+        if (!post) {
+            // Yazı bulunamazsa veya hata olursa
+            next('/not-found'); // Veya ana sayfaya
+            return;
+        }
+
+        // Kullanıcının yazıyı düzenleme/silme yetkisi yoksa
+        if (!(user?._id === post.user?._id || authStore.isAdmin)) {
+            alert('Bu yazıyı düzenlemeye yetkiniz bulunmamaktadır.');
+            next('/'); // Yetkisiz ise ana sayfaya
+            return;
+        }
+    }
+  }
+
+  next(); // Her şey yolundaysa devam et
 });
 
 export default router;

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-// const slugify = require('slugify'); // Eğer slugify kullanacaksanız uncomment yapın ve npm install slugify
+const slugify = require('slugify'); // <-- Yorum satırından çıkarıldı
 
 const PostSchema = new mongoose.Schema({
     title: {
@@ -11,18 +11,17 @@ const PostSchema = new mongoose.Schema({
     content: {
         type: String,
         required: [true, 'İçerik gerekli'],
-        minlength: [20, 'İçerik en az 20 karakter olmalı'] // Eklenen minlength
+        minlength: [20, 'İçerik en az 20 karakter olmalı']
     },
     author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // --- Yeni Eklenen veya İyileştirilen Alanlar ---
     slug: {
         type: String,
         unique: true,
-        // sparse: true, // Eğer bazı postlarda slug olmayacaksa uncomment yapın
+        // sparse: true, // Bu artık gerekli değil, çünkü slug hep atanacak
         trim: true
     },
     image: {
@@ -36,7 +35,7 @@ const PostSchema = new mongoose.Schema({
     },
     likes: {
         type: Number,
-        default: 0 // Varsayılan olarak 0
+        default: 0
     },
     tags: {
         type: [String],
@@ -46,23 +45,15 @@ const PostSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     }
-    // --- Yeni Eklenen veya İyileştirilen Alanlar Sonu ---
 }, {
-    timestamps: true // createdAt ve updatedAt alanlarını otomatik ekler
+    timestamps: true
 });
 
-// Kaydetme öncesi: Slug oluşturma ve isPublished true ise publishedAt ayarlama
+// Kaydetme öncesi: Slug oluşturma/güncelleme
 PostSchema.pre('save', function(next) {
-    // Slug oluşturma/güncelleme (eğer başlık değiştiyse)
-    // if (this.isModified('title') && this.title) {
-    //     this.slug = slugify(this.title, { lower: true, strict: true });
-    // }
-
-    // Eğer 'isPublished' true olduysa ve 'publishedAt' ayarlanmadıysa, şimdiki zamanı ayarla
-    // Bu mantık PostController'da da ele alınabilir
-    // if (this.isModified('isPublished') && this.isPublished && !this.publishedAt) {
-    //    this.publishedAt = Date.now();
-    // }
+    if (this.isModified('title') && this.title) { // Başlık değiştiyse ve boş değilse slug oluştur
+        this.slug = slugify(this.title, { lower: true, strict: true, locale: 'tr' }); // Türkçe karakter desteği için locale: 'tr' ekledik
+    }
     next();
 });
 

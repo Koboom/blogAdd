@@ -1,92 +1,78 @@
 <template>
   <div class="post-detail-container">
     <div v-if="postStore.loading" class="loading-message">Yazı yükleniyor...</div>
-    <div v-else-if="postStore.error" class="error-message">Hata: {{ postStore.error }}</div>
-    <div v-else-if="currentPost" class="post-content-wrapper">
-      <h1 class="post-title">{{ currentPost.title }}</h1>
+    <div v-if="postStore.error" class="error-message">Hata: {{ postStore.error }}</div>
+
+    <div v-if="postStore.selectedPost" class="post-card">
+      <h1 class="post-title">{{ postStore.selectedPost.title }}</h1>
       <p class="post-meta">
-        Yazar: <span class="meta-author">{{ currentPost.user?.username || 'Bilinmiyor' }}</span> |
-        Tarih: <span class="meta-date">{{ formatDate(currentPost.createdAt) }}</span>
+        Yazar: {{ postStore.selectedPost.user?.username || 'Bilinmiyor' }} |
+        Tarih: {{ formatDate(postStore.selectedPost.createdAt) }}
       </p>
-      <div class="post-body" v-html="formattedContent"></div>
+      <div class="post-content-full">{{ postStore.selectedPost.content }}</div>
 
-      <div v-if="canManagePost" class="post-actions">
-        <button @click="goToEditPost" class="edit-button">Yazıyı Düzenle</button>
-        <button @click="confirmDeletePost" class="delete-button">Yazıyı Sil</button>
+      <div v-if="canModifyPost" class="post-actions">
+        <router-link :to="`/posts/${postStore.selectedPost._id}/edit`" class="edit-button">
+          Düzenle
+        </router-link>
+        <button @click="confirmDelete" class="delete-button">Sil</button>
       </div>
+    </div>
+    <div v-else-if="!postStore.loading && !postStore.error" class="no-post-message">
+      Yazı bulunamadı.
+    </div>
 
-      <router-link to="/" class="back-button">← Tüm Yazılara Geri Dön</router-link>
-    </div>
-    <div v-else class="not-found-message">
-      Yazı bulunamadı veya bir sorun oluştu.
-      <router-link to="/" class="back-button">Anasayfaya Dön</router-link>
-    </div>
+    <router-link to="/" class="back-button">Ana Sayfaya Dön</router-link>
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed, watch } from 'vue';
+import { onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePostStore } from '../stores/post';
-import { useAuthStore } from '../stores/auth'; // Auth store'u import et
+import { useAuthStore } from '../stores/auth';
 
-const route = useRoute(); // Geçerli rotayı almak için
+const route = useRoute(); // URL'den parametreleri almak için
 const router = useRouter(); // Yönlendirme için
 const postStore = usePostStore();
-const authStore = useAuthStore(); // Auth store'u kullan
+const authStore = useAuthStore();
 
-// currentPost Pinia store'da `selectedPost` olarak saklanıyor
-const currentPost = computed(() => postStore.selectedPost);
+const postId = route.params.id; // URL'den yazı ID'sini al
 
-// Kullanıcının yazıyı yönetme yetkisi olup olmadığını kontrol et
-const canManagePost = computed(() => {
-  if (!authStore.isAuthenticated || !currentPost.value) return false;
-  // Yazının yazarı veya yönetici (admin) ise
-  return authStore.user._id === currentPost.value.user?._id || authStore.isAdmin;
-});
-
-// onMounted içinde post'u ID'ye göre çek
 onMounted(() => {
-  const postId = route.params.id;
-  postStore.fetchPostById(postId);
-});
-
-// Route parametresi değiştiğinde (örneğin aynı sayfadan başka bir yazıya geçişte)
-// yazıyı yeniden çekmek için watcher
-watch(() => route.params.id, (newId) => {
-  if (newId) {
-    postStore.fetchPostById(newId);
+  if (postId) {
+    postStore.fetchPostById(postId);
   }
 });
+
+// Kullanıcının yazıyı düzenleme/silme yetkisi olup olmadığını kontrol et
+const canModifyPost = computed(() => {
+  if (!authStore.isAuthenticated || !postStore.selectedPost) {
+    return false;
+  }
+  // Yazının sahibi mi veya admin mi?
+  return (
+    authStore.user?._id === postStore.selectedPost.user?._id || authStore.isAdmin
+  );
+});
+
+const confirmDelete = async () => {
+  if (confirm('Bu yazıyı silmek istediğinizden emin misiniz?')) {
+    try {
+      await postStore.deletePost(postId);
+      alert('Yazı başarıyla silindi!');
+      router.push('/'); // Yazı silindikten sonra ana sayfaya dön
+    } catch (err) {
+      alert('Yazı silinirken bir hata oluştu.');
+      console.error('Silme hatası:', err);
+    }
+  }
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
   return new Date(dateString).toLocaleDateString('tr-TR', options);
-};
-
-// İçeriği HTML olarak güvenli bir şekilde görüntülemek için (Markdown renderlama yapılmıyorsa)
-const formattedContent = computed(() => {
-  // Eğer post içeriği basit metin ise, <pre> veya <p> etiketleri arasına alabilirsiniz.
-  // Markdown'dan HTML'e çeviri yapacaksanız, burada bir kütüphane kullanmanız gerekir (örn: marked.js).
-  // Şimdilik sadece yeni satırları <br> ile değiştirerek basit formatlama yapalım.
-  return currentPost.value?.content ? currentPost.value.content.replace(/\n/g, '<br>') : '';
-});
-
-const goToEditPost = () => {
-  router.push(`/posts/${currentPost.value._id}/edit`);
-};
-
-const confirmDeletePost = async () => {
-  if (confirm('Bu blog yazısını silmek istediğinize emin misiniz?')) {
-    try {
-      await postStore.deletePost(currentPost.value._id);
-      alert('Yazı başarıyla silindi!');
-      router.push('/'); // Yazı silindikten sonra Anasayfa'ya yönlendir
-    } catch (error) {
-      alert('Yazı silinirken bir hata oluştu: ' + (error.response?.data?.message || error.message));
-    }
-  }
 };
 </script>
 
@@ -94,124 +80,114 @@ const confirmDeletePost = async () => {
 .post-detail-container {
   max-width: 800px;
   margin: 50px auto;
-  padding: 40px;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  font-family: 'Arial', sans-serif;
-  line-height: 1.7;
-  color: #333;
-}
-
-.loading-message, .error-message, .not-found-message {
   padding: 30px;
-  text-align: center;
-  font-size: 1.3rem;
-  color: #555;
-  background-color: #e0f2f7;
-  border: 1px solid #b3e0ed;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  text-align: left;
 }
 
-.error-message {
-  background-color: #ffe0e6;
-  border-color: #ffb3c1;
-  color: #dc3545;
-}
-
-.post-content-wrapper {
-  padding-bottom: 30px;
+.post-card {
+  margin-bottom: 30px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 25px;
 }
 
 .post-title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   color: #2c3e50;
-  margin-bottom: 20px;
-  text-align: center;
-  line-height: 1.2;
+  margin-bottom: 15px;
+  word-wrap: break-word; /* Uzun başlıkları kır */
 }
 
 .post-meta {
-  text-align: center;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #777;
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 }
 
-.meta-author {
-  font-weight: bold;
-  color: #007bff;
-}
-
-.meta-date {
-  color: #555;
-}
-
-.post-body {
-  font-size: 1.15rem;
+.post-content-full {
+  font-size: 1.1rem;
   line-height: 1.8;
-  white-space: pre-wrap; /* Boşlukları ve yeni satırları korur */
-  margin-bottom: 40px;
-  text-align: justify;
+  color: #444;
+  white-space: pre-wrap; /* İçerik biçimlendirmesini koru */
+  margin-bottom: 30px;
 }
 
 .post-actions {
   display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
-  margin-bottom: 40px; /* Alttaki butondan boşluk */
+  gap: 15px;
+  margin-top: 20px;
 }
 
 .edit-button, .delete-button {
-  padding: 12px 25px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.05rem;
+  padding: 10px 20px;
+  border-radius: 5px;
   font-weight: bold;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+  text-decoration: none; /* router-link için */
+  display: inline-block; /* router-link için */
+  text-align: center;
 }
 
 .edit-button {
-  background-color: #ffc107;
-  color: #333;
+  background-color: #007bff;
+  color: white;
 }
 
 .edit-button:hover {
-  background-color: #e0a800;
-  transform: translateY(-2px);
+  background-color: #0056b3;
 }
 
 .delete-button {
   background-color: #dc3545;
   color: white;
+  border: none;
 }
 
 .delete-button:hover {
   background-color: #c82333;
-  transform: translateY(-2px);
 }
 
 .back-button {
-  display: block;
-  width: fit-content;
-  margin: 0 auto;
+  display: inline-block;
+  margin-top: 30px;
+  padding: 10px 20px;
   background-color: #6c757d;
   color: white;
-  padding: 12px 25px;
-  border-radius: 8px;
+  border-radius: 5px;
   text-decoration: none;
   font-weight: bold;
-  font-size: 1.05rem;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
 }
 
 .back-button:hover {
   background-color: #5a6268;
-  transform: translateY(-2px);
+}
+
+.loading-message, .error-message, .no-post-message {
+  text-align: center;
+  padding: 20px;
+  margin-top: 20px;
+  font-size: 1.1rem;
+  border-radius: 8px;
+}
+
+.loading-message {
+  background-color: #e6f7ff;
+  color: #0056b3;
+  border: 1px solid #91d5ff;
+}
+
+.error-message {
+  background-color: #fff0f6;
+  color: #eb2f96;
+  border: 1px solid #ffadd2;
+}
+
+.no-post-message {
+  background-color: #fffbe6;
+  color: #faad14;
+  border: 1px solid #ffe58f;
 }
 </style>

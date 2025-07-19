@@ -7,8 +7,8 @@ const getPosts = async (req, res) => {
     try {
         // En yeni gönderiler en başta olacak şekilde sırala ve yazar bilgilerini de getir
         const posts = await Post.find({})
-                                .populate('author', 'username email') // Sadece username ve email alanlarını getir
-                                .sort({ createdAt: -1 }); // En yeniyi en üste getir
+                                 .populate('author', 'username email') // Sadece username ve email alanlarını getir
+                                 .sort({ createdAt: -1 }); // En yeniyi en üste getir
         res.json(posts);
     } catch (error) {
         console.error(error);
@@ -39,6 +39,18 @@ const getPostById = async (req, res) => {
 const createPost = async (req, res) => {
     const { title, content } = req.body;
 
+    // *** YENİ EKLENEN VALIDASYON BAŞLANGICI ***
+    if (!title || !content) {
+        return res.status(400).json({ message: 'Başlık ve içerik alanları zorunludur.' });
+    }
+    if (title.trim().length < 3) { // Başlık en az 3 karakter olmalı
+        return res.status(400).json({ message: 'Başlık en az 3 karakter içermelidir.' });
+    }
+    if (content.trim().length < 20) { // İçerik en az 20 karakter olmalı
+        return res.status(400).json({ message: 'İçerik en az 10 karakter içermelidir.' });
+    }
+    // *** YENİ EKLENEN VALIDASYON SONU ***
+
     // `req.user` objesi `protect` middleware'i tarafından eklenir.
     // Eğer kullanıcı oturum açmışsa, req.user._id geçerli olacaktır.
     if (!req.user) {
@@ -58,7 +70,8 @@ const createPost = async (req, res) => {
         res.status(201).json(populatedPost);
     } catch (error) {
         console.error(error);
-        res.status(400).json({ message: 'Geçersiz gönderi verisi.', error: error.message });
+        // MongoDB validasyon hatası varsa daha spesifik mesaj gönderebiliriz, ancak genel bir hata yeterli
+        res.status(400).json({ message: 'Gönderi oluşturulamadı. Lütfen geçerli veriler sağlayın.', error: error.message });
     }
 };
 
@@ -67,6 +80,16 @@ const createPost = async (req, res) => {
 // @access  Private (Sadece gönderiyi oluşturan kullanıcı veya yönetici)
 const updatePost = async (req, res) => {
     const { title, content } = req.body;
+
+    // *** YENİ EKLENEN VALIDASYON BAŞLANGICI ***
+    // Sadece mevcut alanlar için validasyon yap (kullanıcı sadece başlığı güncelleyebilir)
+    if (title && title.trim().length < 3) {
+        return res.status(400).json({ message: 'Başlık en az 3 karakter içermelidir.' });
+    }
+    if (content && content.trim().length < 10) {
+        return res.status(400).json({ message: 'İçerik en az 10 karakter içermelidir.' });
+    }
+    // *** YENİ EKLENEN VALIDASYON SONU ***
 
     try {
         const post = await Post.findById(req.params.id);
@@ -77,9 +100,9 @@ const updatePost = async (req, res) => {
                 return res.status(403).json({ message: 'Bu gönderiyi güncellemeye yetkiniz yok.' });
             }
 
-            post.title = title || post.title;
-            post.content = content || post.content;
-            post.updatedAt = Date.now(); // Otomatik olarak güncellenir (pre-save hook sayesinde)
+            post.title = title !== undefined ? title : post.title; // title boş string olsa bile güncelle
+            post.content = content !== undefined ? content : post.content; // content boş string olsa bile güncelle
+            // updatedAt otomatik olarak şema pre-save hook'u ile güncellenir.
 
             const updatedPost = await post.save();
             const populatedPost = await Post.findById(updatedPost._id).populate('author', 'username email');
@@ -89,7 +112,7 @@ const updatePost = async (req, res) => {
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Sunucu hatası.' });
+        res.status(400).json({ message: 'Gönderi güncellenemedi. Lütfen geçerli veriler sağlayın.', error: error.message });
     }
 };
 
@@ -124,4 +147,3 @@ module.exports = {
     updatePost,
     deletePost
 };
-// Bu dosya, blog gönderileri ile ilgili CRUD işlemlerini içerir.

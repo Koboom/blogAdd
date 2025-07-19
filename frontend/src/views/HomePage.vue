@@ -1,7 +1,7 @@
 <template>
   <div class="home-container">
-    <h1>Blog Yazıları</h1>
-    <p>Uygulamamızdaki en son blog yazılarını keşfedin!</p>
+    <h1 class="page-title">Blog Yazıları</h1>
+    <p class="tagline">Uygulamamızdaki en son blog yazılarını keşfedin!</p>
 
     <div v-if="authStore.isAuthenticated" class="create-post-section">
       <router-link to="/create" class="create-post-button">Yeni Yazı Oluştur</router-link>
@@ -11,24 +11,26 @@
       Yazılar yükleniyor...
     </div>
 
-    <div v-if="postStore.error" class="error-message">
+    <div v-else-if="postStore.error" class="error-message">
       Hata: {{ postStore.error }}
     </div>
 
-    <div v-if="!postStore.loading && !postStore.error && postStore.allPosts.length > 0" class="post-list">
-      <div v-for="post in postStore.allPosts" :key="post.id" class="post-card">
-        <h2>{{ post.title }}</h2>
-        <p class="post-author">Yazar: {{ post.author?.username || 'Bilinmiyor' }}</p>
-        <p>{{ post.content.substring(0, 150) }}...</p>
-        <router-link :to="`/posts/${post.id}`" class="read-more-button">Devamını Oku</router-link>
-        <div v-if="authStore.isAuthenticated && authStore.currentUser?.id === post.author_id" class="post-actions">
-          <router-link :to="`/edit-post/${post.id}`" class="edit-button">Düzenle</router-link>
-          <button @click="confirmDelete(post.id, post.title)" class="delete-button">Sil</button>
+    <div v-else-if="postStore.posts.length > 0" class="post-grid">
+      <div v-for="post in postStore.posts" :key="post._id" class="post-card">
+        <h2 class="post-card-title">{{ post.title }}</h2>
+        <p class="post-card-meta">Yazar: {{ post.author?.username || 'Bilinmiyor' }} | {{ formatDate(post.createdAt) }}</p>
+        <p class="post-card-content">{{ truncateContent(post.content, 150) }}</p>
+
+        <router-link :to="`/posts/${post._id}`" class="read-more-button">Devamını Oku</router-link>
+
+        <div v-if="canModifyPost(post)" class="post-actions">
+          <router-link :to="`/posts/${post._id}/edit`" class="edit-button">Düzenle</router-link>
+          <button @click="confirmDelete(post._id, post.title)" class="delete-button">Sil</button>
         </div>
       </div>
     </div>
 
-    <div v-if="!postStore.loading && !postStore.error && postStore.allPosts.length === 0" class="no-posts-message">
+    <div v-else class="no-posts-message">
       Henüz hiç blog yazısı bulunmuyor. İlk yazıyı siz ekleyin!
     </div>
   </div>
@@ -36,33 +38,57 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { usePostStore } from '../stores/post'; // Post store'u içeri aktarıyoruz
-import { useAuthStore } from '../stores/auth'; // Auth store'u da kullanacağız (kimlik kontrolü için)
-import { useRouter } from 'vue-router'; // Yönlendirme için router'ı import ediyoruz
+import { usePostStore } from '../stores/post';
+import { useAuthStore } from '../stores/auth';
+import { useRouter } from 'vue-router';
 
 const postStore = usePostStore();
 const authStore = useAuthStore();
-const router = useRouter(); // useRouter hook'unu kullanıyoruz
+const router = useRouter();
 
-// Bileşen yüklendiğinde blog yazılarını çek
 onMounted(() => {
   postStore.fetchPosts();
 });
+
+const truncateContent = (content, maxLength) => {
+  if (content.length <= maxLength) {
+    return content;
+  }
+  return content.substring(0, maxLength) + '...';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return new Date(dateString).toLocaleDateString('tr-TR', options);
+};
+
+// Yazıyı düzenleme veya silme yetkisi olanları kontrol eden yeni fonksiyon
+const canModifyPost = (post) => {
+  if (!authStore.isAuthenticated || !authStore.user || !post || !post.author) {
+    return false;
+  }
+  // Kendi yazısı mı veya admin mi?
+  return authStore.user._id === post.author._id || authStore.isAdmin;
+};
 
 const confirmDelete = async (postId, postTitle) => {
   if (confirm(`"${postTitle}" başlıklı yazıyı silmek istediğinizden emin misiniz?`)) {
     try {
       await postStore.deletePost(postId);
       alert('Yazı başarıyla silindi!');
-      // Silme sonrası listeyi otomatik güncelleyecektir (store içindeki filter sayesinde)
+      // Silme sonrası postStore.posts otomatik olarak güncelleneceği için,
+      // sayfayı tekrar yüklemeye gerek kalmaz.
     } catch (error) {
-      alert(`Yazı silinirken hata oluştu: ${postStore.error}`);
+      alert(`Yazı silinirken hata oluştu: ${error.message || 'Bilinmeyen Hata'}`);
+      console.error('Silme hatası:', error);
     }
   }
 };
 </script>
 
 <style scoped>
+/* Mevcut stil kodlarınız */
 .home-container {
   max-width: 900px;
   margin: 50px auto;
@@ -72,14 +98,14 @@ const confirmDelete = async (postId, postTitle) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-h1 {
+.page-title {
   font-size: 2.5rem;
   color: #333;
   margin-bottom: 20px;
   text-align: center;
 }
 
-p {
+.tagline {
   font-size: 1.1rem;
   color: #666;
   text-align: center;
@@ -118,7 +144,7 @@ p {
   background-color: #218838;
 }
 
-.post-list {
+.post-grid { /* post-list yerine post-grid kullanıldı */
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 25px;
@@ -140,26 +166,27 @@ p {
   transform: translateY(-5px);
 }
 
-.post-card h2 {
+.post-card-title { /* h2 için class eklendi */
   font-size: 1.8rem;
   color: #007bff;
   margin-bottom: 10px;
-  word-break: break-word; /* Uzun başlıklar için */
+  word-break: break-word;
 }
 
-.post-author {
+.post-card-meta { /* post-author yerine post-card-meta kullanıldı */
   font-size: 0.9rem;
   color: #777;
   margin-bottom: 15px;
   font-style: italic;
 }
 
-.post-card p {
+.post-card-content { /* p için class eklendi */
   font-size: 1rem;
   line-height: 1.6;
   color: #444;
   margin-bottom: 20px;
-  text-align: left; /* Paragrafın metin hizalamasını düzelt */
+  text-align: left;
+  flex-grow: 1; /* İçeriğin kartı doldurmasını sağlar */
 }
 
 .read-more-button {
@@ -172,7 +199,7 @@ p {
   font-size: 0.95rem;
   font-weight: bold;
   transition: background-color 0.3s ease;
-  align-self: flex-start; /* Butonu sola hizala */
+  align-self: flex-start;
 }
 
 .read-more-button:hover {
@@ -183,7 +210,7 @@ p {
   margin-top: 15px;
   display: flex;
   gap: 10px;
-  justify-content: flex-end; /* Butonları sağa hizala */
+  justify-content: flex-end;
 }
 
 .edit-button, .delete-button {
@@ -193,9 +220,9 @@ p {
   cursor: pointer;
   font-weight: bold;
   transition: background-color 0.3s ease;
-  text-decoration: none; /* Router-link gibi davranması için */
-  display: inline-block; /* Router-link gibi davranması için */
-  text-align: center; /* Router-link gibi davranması için */
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
 }
 
 .edit-button {
