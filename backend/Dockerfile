@@ -11,11 +11,12 @@ COPY package*.json ./
 # Bağımlılıkları yükle
 RUN npm install
 
+# .env dosyasını Docker imajına kopyala
+# Bu, ortam değişkenlerinin doğru şekilde yüklenmesini sağlar.
+COPY ./.env ./.env
+
 # Geri kalan uygulama kodunu kopyala
 COPY . .
-
-# Ortam değişkenlerini (örneğin MONGO_URI) Dockerfile'a direkt yazmayın.
-# Docker Compose veya Kubernetes secret'ları kullanacağız.
 
 # Portu dışarıya aç
 EXPOSE 5000

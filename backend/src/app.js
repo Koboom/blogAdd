@@ -1,108 +1,80 @@
+// backend/src/app.js
+
+require('dotenv').config({ path: '../.env' });
+
 const express = require('express');
-const dotenv = require('dotenv');
-const connectDB = require('../config/db'); // db.js'den veritabanı bağlantısı
+const connectDB = require('../config/db');
 const cors = require('cors');
 const authRoutes = require('../routes/authRoutes');
 const postRoutes = require('../routes/postRoutes');
 const favoriteRoutes = require('../routes/favoriteRoutes');
 const path = require('path');
 
-// <<< YENİ İMPORTLAR BAŞLANGICI >>>
-const passport = require('passport'); // Passport.js eklendi
-const session = require('express-session'); // express-session eklendi
-const MongoStore = require('connect-mongo'); // Oturumları MongoDB'de saklamak için
-const jwt = require('jsonwebtoken'); // JWT token oluşturmak için (callback'te kullanılacak)
-// <<< YENİ İMPORTLAR SONU >>>
+const passport = require('passport');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
 
-// .env dosyasındaki ortam değişkenlerini yükle
-// Bu satırın require'lardan hemen sonra olması önemli.
-dotenv.config();
+// *** GEÇİCİ TEST KODU BAŞLANGICI: ENV DEĞİŞKENLERİNİ BURADA KONTROL ET ***
+console.log('--- ENV DEĞİŞKEN KONTROLÜ ---');
+console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET);
+console.log('MONGO_URI:', process.env.MONGO_URI);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+console.log('--- ENV DEĞİŞKEN KONTROLÜ SONU ---');
+// *** GEÇİCİ TEST KODU SONU ***
 
-// MongoDB bağlantısını kur
-connectDB();
+connectDB(); // Bu satırda MONGO_URI kullanılacak
 
 const app = express();
 
-// Middleware'ler
-app.use(express.json()); // JSON formatındaki istek gövdelerini ayrıştırmak için
-app.use(express.urlencoded({ extended: false })); // URL-encoded istek gövdelerini ayrıştırmak için
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// CORS middleware'i - Vue.js geliştirme portuna göre ayarlandı
 app.use(cors({
-    origin: 'http://localhost:5173', // Vue.js uygulamanızın çalışacağı port
-    credentials: true // Kimlik bilgileri (çerezler, yetkilendirme başlıkları) için izin ver
+    origin: process.env.FRONTEND_URL, // Bu değerin okunması gerekiyor
+    credentials: true
 }));
 
-// <<< YENİ: Oturum (Session) Middleware'i Başlangıcı >>>
-// Oturumları MongoDB'de saklamak için
 app.use(session({
-    secret: process.env.SESSION_SECRET, // .env'den gelen oturum gizemi (çok önemli!)
-    resave: false, // Oturum değişmediyse bile yeniden kaydetme
-    saveUninitialized: false, // Başlatılmamış oturumları kaydetme
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
     store: MongoStore.create({
-        mongoUrl: process.env.MONGO_URI, // MongoDB bağlantı URI'si
-        collectionName: 'sessions' // Oturumların saklanacağı koleksiyon adı
+        mongoUrl: process.env.MONGO_URI,
+        collectionName: 'sessions'
     }),
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24, // Oturum süresi: 1 gün (milisaniye cinsinden)
-        // secure: process.env.NODE_ENV === 'production', // Sadece HTTPS için üretimde açılmalı
-        // httpOnly: true // Tarayıcı tarafında JavaScript ile erişimi engeller (güvenlik için iyi)
+        maxAge: 1000 * 60 * 60 * 24,
     }
 }));
-// <<< YENİ: Oturum (Session) Middleware'i Sonu >>>
 
-// <<< YENİ: Passport.js Middleware'i Başlangıcı >>>
-// Passport middleware'i başlat
-app.use(passport.initialize()); // Passport'u başlat
-app.use(passport.session()); // Oturum tabanlı kimlik doğrulama için Passport'u kullan
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Passport yapılandırma dosyasını çağır (GoogleStrategy ayarlarını yükler)
-require('../config/passport'); // <<< YOL DÜZELTİLDİ: src klasöründen bir üst dizine çıkıp config'e gidiyoruz
-// <<< YENİ: Passport.js Middleware'i Sonu >>>
+require('../config/passport')(passport); // Bu kısımda GOOGLE_CLIENT_ID kullanılacak
 
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads'))); // Statik dosyalar için uploads klasörünü erişilebilir yap
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Test rotası
 app.get('/', (req, res) => {
     res.send('API is running...');
 });
 
-// Auth rotalarını kullan (mevcut kullanıcı adı/şifre ile giriş/kayıt)
 app.use('/api/auth', authRoutes);
-
-// Post rotalarını kullan
 app.use('/api/posts', postRoutes);
-
-// Favori rotalarını kullan
 app.use('/api/posts', favoriteRoutes);
 
-// <<< YENİ: Google OAuth Rotları Başlangıcı >>>
-// Google OAuth'a yönlendirme rotası
-// Kullanıcı bu URL'ye gittiğinde, Google'ın kimlik doğrulama sayfasına yönlendirilir
 app.get('/api/auth/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] }) // Google'dan profil ve e-posta bilgilerini iste
+    passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
-// Google OAuth Geri Çağırma (Callback) rotası
-// Google, kimlik doğrulama tamamlandığında kullanıcıyı bu URL'ye geri yönlendirir
 app.get('/api/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: 'http://localhost:8080/login' }), // Başarısız olursa Vue.js'deki login sayfasına yönlendir
+    passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/login` }),
     (req, res) => {
-        // Başarılı kimlik doğrulama sonrası
-        // req.user nesnesi, Passport tarafından kimliği doğrulanmış kullanıcıyı içerir.
-        // Bu kullanıcı için bir JWT oluşturup frontend'e göndermeliyiz.
-        const token = req.user.getSignedJwtToken(); // User modelindeki metodu çağırıyoruz
-
-        // Frontend'e JWT ile birlikte yönlendir
-        // Vue.js frontend'i bu token'ı URL'den alıp kendi localStorage'ına kaydedecektir
-        res.redirect(`http://localhost:8080/auth-success?token=${token}`);
+        const token = req.user.getSignedJwtToken();
+        res.redirect(`${process.env.FRONTEND_URL}/auth-success?token=${token}`);
     }
 );
-// <<< YENİ: Google OAuth Rotları Sonu >>>
 
-
-// Uygulamanın dinleyeceği portu belirle
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// Uygulama çalışmaya başladığında konsola mesaj yazdır

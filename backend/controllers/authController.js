@@ -106,9 +106,44 @@ const googleAuthCallback = asyncHandler(async (req, res) => {
     res.redirect(`${frontendUrl}/auth-success?token=${token}&user=${encodedUser}`);
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+    // req.user, protect middleware'i tarafından eklenen oturum açmış kullanıcıdır.
+    const user = await User.findById(req.user.id).select('+password'); // Şifreyi de çekmeliyiz
+    const { currentPassword, newPassword } = req.body;
+
+    if (!user) {
+        res.status(404);
+        throw new Error('Kullanıcı bulunamadı.');
+    }
+
+    // Mevcut şifrenin doğru olup olmadığını kontrol et
+    if (!(await user.matchPassword(currentPassword))) {
+        res.status(401);
+        throw new Error('Mevcut şifre yanlış.');
+    }
+
+    // Yeni şifre ile mevcut şifrenin aynı olup olmadığını kontrol et
+    if (currentPassword === newPassword) {
+        res.status(400);
+        throw new Error('Yeni şifre mevcut şifre ile aynı olamaz.');
+    }
+
+    // Yeni şifrenin belirlenen güvenlik kurallarına uygunluğunu kontrol edebilirsiniz (opsiyonel)
+    if (newPassword.length < 6) { // Örnek olarak minimum 6 karakter
+        res.status(400);
+        throw new Error('Yeni şifre en az 6 karakter uzunluğunda olmalıdır.');
+    }
+
+    user.password = newPassword; // User modelindeki pre-save hook şifreyi otomatik hashleyecektir
+    await user.save(); // Kullanıcıyı kaydet
+
+    res.json({ message: 'Şifre başarıyla güncellendi.' });
+});
+
 
 module.exports = {
     registerUser,
     loginUser,
-    googleAuthCallback // <<< BU FONKSİYONU DIŞA AKTARMAYI UNUTMA
+    googleAuthCallback,
+    changePassword // <-- Bu fonksiyonu dışa aktardığınızdan emin olun
 };

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const asyncHandler = require('express-async-handler'); // Hataları yakalamak için
 const User = require('../models/User'); // Kullanıcı modelini import et
 
 // @desc    Token'ı doğrula ve kullanıcıyı request objesine ekle
@@ -25,11 +26,13 @@ const protect = async (req, res, next) => {
         } catch (error) {
             console.error(error);
             res.status(401).json({ message: 'Yetkilendirme reddedildi, token geçersiz.' });
+            throw new Error('Yetkilendirme başarısız, token geçersiz.');
         }
     }
 
     if (!token) {
         res.status(401).json({ message: 'Yetkilendirme reddedildi, token yok.' });
+        throw new Error('Yetkilendirme başarısız, token bulunamadı.');
     }
 };
 

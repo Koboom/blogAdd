@@ -1,33 +1,55 @@
+# docker-compose.yml
 version: '3.8'
 
+# Tanımlanan servisler (uygulamanızın parçaları)
 services:
-  backend: # Backend servisimizin adı
+  # Backend servisi
+  backend:
+    # Backend imajını ./backend klasöründeki Dockerfile'dan oluştur
     build: ./backend
-    container_name: blogadd-backend
+    # Kapsayıcıdaki 5000 portunu ana makinedeki 5000 portuna yönlendir
     ports:
       - "5000:5000"
-    environment:
-      - NODE_ENV=development
-      - PORT=5000
-      - MONGO_URI=mongodb://db:27017/blogapp
-      - JWT_SECRET=cok-gizli-anahtar
-      - SESSION_SECRET=baska-bir-cok-gizli-anahtar
+    # Ana makinedeki ./backend klasörünü kapsayıcıdaki /app dizinine bağla
+    # Bu sayede kod değişiklikleri anında yansır
+    volumes:
+      - ./backend:/app
+    # Backend'in başlamadan önce veritabanının (db) başlamasını bekle
     depends_on:
       - db
-    volumes: # <-- BURAYI GÜNCELLEYİN
-      - ./backend:/app # Geliştirme sırasında kod değişikliklerinin yansıması için
-      - ./uploads:/app/uploads # <-- YENİ EKLENEN SATIR: Host'taki uploads klasörünü container'daki /app/uploads'a eşle
-      - /app/node_modules # node_modules klasörünü host'a bağlamayarak bağımlılık sorunlarını önler
+    # Ortam değişkenlerini backend/.env dosyasından yükle
+    # Bu, hassas bilgileri docker-compose.yml'den ayrı tutmanın güvenli yoludur.
+    env_file:
+      - ./backend/.env
+    # Uygulamayı başlatmak için npm start komutunu çalıştır
+    command: npm start
 
-  db: # MongoDB servisimizin adı
-    image: mongo:latest
-    container_name: blogadd-mongodb
+  # Frontend servisi
+  frontend:
+    # Frontend imajını ./frontend klasöründeki Dockerfile'dan oluştur
+    build: ./frontend
+    # Kapsayıcıdaki 5173 portunu ana makinedeki 5173 portuna yönlendir
+    ports:
+      - "5173:5173"
+    # Ana makinedeki ./frontend klasörünü kapsayıcıdaki /app dizinine bağla
+    volumes:
+      - ./frontend:/app
+    # Frontend'in başlamadan önce backend'in başlamasını bekle
+    depends_on:
+      - backend
+
+  # Veritabanı servisi (MongoDB)
+  db:
+    # MongoDB 4.4 imajını kullan
+    image: mongo:4.4
+    # Kapsayıcıdaki 27017 portunu ana makinedeki 27017 portuna yönlendir
     ports:
       - "27017:27017"
+    # MongoDB verilerini kalıcı hale getirmek için volume kullan
     volumes:
-      - mongo_data:/data/db # Verilerin kalıcı olması için bir volume bağla
-    environment:
-      TZ: Europe/Berlin
+      - mongodb_data:/data/db
 
+# Tanımlanan volume'ler
 volumes:
-  mongo_data: # MongoDB verileri için kalıcı bir volume tanımla
+  # MongoDB verileri için bir volume oluştur
+  mongodb_data:

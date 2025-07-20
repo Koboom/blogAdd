@@ -1,16 +1,19 @@
+// frontend/src/router/index.js
+
 import { createRouter, createWebHistory } from 'vue-router';
 import HomePage from '../views/HomePage.vue';
 import LoginPage from '../views/LoginPage.vue';
 import RegisterPage from '../views/RegisterPage.vue';
 import AuthSuccessPage from '../views/AuthSuccessPage.vue';
-import CreatePostPage from '../views/CreatePostPage.vue'; // Yeni yazı oluşturma da EditPostPage tarafından ele alınacak
+// import CreatePostPage from '../views/CreatePostPage.vue'; // Artık CreatePostPage'e gerek yok
 import PostDetailPage from '../views/PostDetailPage.vue';
-import EditPostPage from '../views/EditPostPage.vue'; // EditPostPage'i import ettik
-import UserProfilePage from '../views/UserProfilePage.vue';
+import EditPostPage from '../views/EditPostPage.vue';
+import UserProfilePage from '../views/UserProfilePage.vue'; // veya Profile.vue
 import NotFoundPage from '../views/NotFoundPage.vue';
+import AdminDashboard from '../views/AdminDashboard.vue';
 
 import { useAuthStore } from '../stores/auth';
-import { usePostStore } from '../stores/post'; // Post store'u import et
+import { usePostStore } from '../stores/post';
 
 const routes = [
   {
@@ -36,10 +39,9 @@ const routes = [
     component: AuthSuccessPage,
   },
   {
-    // Yeni yazı oluşturma rotası (EditPostPage'i kullanır)
     path: '/create',
     name: 'CreatePost',
-    component: EditPostPage, // CreatePostPage yerine EditPostPage kullanıyoruz
+    component: EditPostPage,
     meta: { requiresAuth: true },
   },
   {
@@ -49,7 +51,6 @@ const routes = [
     props: true,
   },
   {
-    // Yazı düzenleme rotası
     path: '/posts/:id/edit',
     name: 'EditPost',
     component: EditPostPage,
@@ -59,8 +60,14 @@ const routes = [
   {
     path: '/profile',
     name: 'Profile',
-    component: UserProfilePage,
+    component: UserProfilePage, // Veya Profile.vue olarak değiştirin
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin-dashboard',
+    name: 'AdminDashboard',
+    component: AdminDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true },
   },
   {
     path: '/:catchAll(.*)',
@@ -75,12 +82,12 @@ const router = createRouter({
 });
 
 // Gezinme korumaları
-router.beforeEach(async (to, from, next) => { // async ekledik, çünkü post detayını çekebiliriz
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
-  const postStore = usePostStore(); // Post store'u da kullanacağız
+  const postStore = usePostStore();
 
   const isAuthenticated = authStore.isAuthenticated;
-  const user = authStore.user;
+  const user = authStore.user; // Pinia'dan gelen güncel user objesi
 
   // Giriş gerektiren sayfalar
   if (to.meta.requiresAuth && !isAuthenticated) {
@@ -94,34 +101,48 @@ router.beforeEach(async (to, from, next) => { // async ekledik, çünkü post de
     return;
   }
 
+  // Admin yetki kontrolü
+  if (to.meta.requiresAdmin && (!isAuthenticated || !authStore.isAdmin)) {
+    // console.log('Admin yetkisi yok, ana sayfaya yönlendiriliyor.'); // Debug için
+    alert('Bu sayfaya erişim yetkiniz yok.');
+    next('/');
+    return;
+  }
+
   // Yazar veya Admin gerektiren rotalar için özel kontrol (EditPost rotası için)
   if (to.meta.requiresAuthorOrAdmin) {
+    // Bu kontrol zaten yukarıdaki `requiresAuth` tarafından yapıldı, ama emin olmak için bırakılabilir
     if (!isAuthenticated) {
-        next('/login'); // Giriş yapmamışsa logine
+        next('/login');
         return;
     }
 
     // Eğer rota bir yazıya özgü (örn: /posts/:id/edit) ise
     if (to.params.id) {
-        await postStore.fetchPostById(to.params.id); // Yazıyı çek
-        const post = postStore.selectedPost;
+      // Yazıyı çekmeden önce, postStore'un `selectedPost` state'ini temizlemek faydalı olabilir
+      // postStore.selectedPost = null; // Opsiyonel: her seferinde temiz bir başlangıç için
+      await postStore.fetchPostById(to.params.id); // Yazıyı çek
+      const post = postStore.selectedPost;
 
-        if (!post) {
-            // Yazı bulunamazsa veya hata olursa
-            next('/not-found'); // Veya ana sayfaya
-            return;
-        }
+      if (!post) {
+        // Yazı bulunamazsa veya hata olursa
+        alert('Düzenlemek istediğiniz yazı bulunamadı veya bir hata oluştu.'); // Kullanıcıya bilgi ver
+        next('/not-found'); // Veya ana sayfaya
+        return;
+      }
 
-        // Kullanıcının yazıyı düzenleme/silme yetkisi yoksa
-        if (!(user?._id === post.user?._id || authStore.isAdmin)) {
-            alert('Bu yazıyı düzenlemeye yetkiniz bulunmamaktadır.');
-            next('/'); // Yetkisiz ise ana sayfaya
-            return;
-        }
+      // Kullanıcının yazıyı düzenleme/silme yetkisi yoksa
+      // authStore.user._id veya user._id kullanabiliriz. Pinia store daha günceldir.
+      if (!(authStore.user?._id === post.user?._id || authStore.isAdmin)) {
+        alert('Bu yazıyı düzenlemeye yetkiniz bulunmamaktadır.');
+        next('/');
+        return;
+      }
     }
   }
 
-  next(); // Her şey yolundaysa devam et
+  // Yukarıdaki koşullardan hiçbiri tetiklenmezse, gezinmeye devam et
+  next();
 });
 
 export default router;

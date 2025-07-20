@@ -14,41 +14,44 @@
       <form @submit.prevent="handleChangePassword" class="password-change-form">
         <div class="form-group">
           <label for="currentPassword">Mevcut Şifre:</label>
-          <input type="password" id="currentPassword" v-model="currentPassword" required />
+          <input type="password" id="currentPassword" v-model="currentPassword" required autocomplete="current-password" />
         </div>
         <div class="form-group">
           <label for="newPassword">Yeni Şifre:</label>
-          <input type="password" id="newPassword" v-model="newPassword" required />
+          <input type="password" id="newPassword" v-model="newPassword" required autocomplete="new-password" />
         </div>
         <div class="form-group">
           <label for="confirmNewPassword">Yeni Şifre Tekrar:</label>
-          <input type="password" id="confirmNewPassword" v-model="confirmNewPassword" required />
+          <input type="password" id="confirmNewPassword" v-model="confirmNewPassword" required autocomplete="new-password" />
         </div>
-        <button type="submit" class="submit-button">Şifreyi Değiştir</button>
+        <button type="submit" class="submit-button" :disabled="authStore.loading">
+          {{ authStore.loading ? 'Değiştiriliyor...' : 'Şifreyi Değiştir' }}
+        </button>
       </form>
       <p v-if="passwordChangeMessage" :class="passwordChangeError ? 'error-message' : 'success-message'">
         {{ passwordChangeMessage }}
+      </p>
+      <p v-if="authStore.error && !passwordChangeMessage" class="error-message">
+        {{ authStore.error }}
       </p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { useAuthStore } from '../stores/auth'; // authStore'u import et
-import { useRouter } from 'vue-router'; // Yönlendirme için router'ı import et
+import { ref, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
+import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
-// Şifre değiştirme formu için reaktif veriler
 const currentPassword = ref('');
 const newPassword = ref('');
 const confirmNewPassword = ref('');
 const passwordChangeMessage = ref('');
 const passwordChangeError = ref(false);
 
-// Eğer kullanıcı oturum açmamışsa giriş sayfasına yönlendir
 onMounted(() => {
   if (!authStore.isAuthenticated) {
     router.push('/login');
@@ -58,6 +61,7 @@ onMounted(() => {
 const handleChangePassword = async () => {
   passwordChangeMessage.value = ''; // Mesajı temizle
   passwordChangeError.value = false; // Hata durumunu sıfırla
+  authStore.clearError(); // Store'daki hatayı da temizle
 
   if (newPassword.value !== confirmNewPassword.value) {
     passwordChangeMessage.value = 'Yeni şifreler eşleşmiyor.';
@@ -65,32 +69,37 @@ const handleChangePassword = async () => {
     return;
   }
 
-  // Şifreler için minimum uzunluk kontrolü
-  if (newPassword.value.length < 6) { // Varsayılan olarak 6 karakter, backend'inize göre ayarlayın
+  // Backend'de kontrol olmasına rağmen frontend'de de basit bir kontrol yapabiliriz
+  if (newPassword.value.length < 6) {
     passwordChangeMessage.value = 'Yeni şifre en az 6 karakter olmalı.';
     passwordChangeError.value = true;
     return;
   }
 
   try {
-    // authStore içinde şifre değiştirme action'ı olacak (henüz eklemedik)
-    // await authStore.changePassword({
-    //   currentPassword: currentPassword.value,
-    //   newPassword: newPassword.value
-    // });
+    const message = await authStore.changePassword({
+      currentPassword: currentPassword.value,
+      newPassword: newPassword.value
+    });
 
-    passwordChangeMessage.value = 'Şifreniz başarıyla değiştirildi!';
+    passwordChangeMessage.value = message; // Backend'den gelen başarı mesajını göster
+    passwordChangeError.value = false;
+    // Formu temizle
     currentPassword.value = '';
     newPassword.value = '';
     confirmNewPassword.value = '';
+
   } catch (error) {
-    passwordChangeMessage.value = error.message || 'Şifre değiştirme başarısız oldu.';
+    // Hata zaten authStore tarafından set edildiği için sadece durumları güncelliyoruz
+    passwordChangeMessage.value = authStore.error || 'Şifre değiştirme başarısız oldu.';
     passwordChangeError.value = true;
   }
 };
 </script>
 
 <style scoped>
+/* (Stil kodunuz aynı kalabilir) */
+/* Daha önce paylaştığınız stil kodunu buraya yapıştırın */
 .profile-container {
   max-width: 700px;
   margin: 50px auto;
@@ -145,7 +154,7 @@ h2 {
 }
 
 .password-change-form input[type="password"] {
-  width: calc(100% - 22px); /* Padding ve border için ayarlama */
+  width: calc(100% - 22px);
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
@@ -154,7 +163,7 @@ h2 {
 }
 
 .password-change-form input[type="password"]:focus {
-  border-color: #42b983; /* Vue yeşili vurgu */
+  border-color: #42b983;
   outline: none;
   box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.2);
 }
@@ -163,7 +172,7 @@ h2 {
   display: block;
   width: 100%;
   padding: 12px 20px;
-  background-color: #42b983; /* Vue yeşili */
+  background-color: #42b983;
   color: white;
   border: none;
   border-radius: 5px;
@@ -180,7 +189,7 @@ h2 {
 }
 
 .error-message {
-  color: #e74c3c; /* Kırmızı */
+  color: #e74c3c;
   background-color: #ffe0e0;
   padding: 10px;
   border-radius: 5px;
@@ -189,7 +198,7 @@ h2 {
 }
 
 .success-message {
-  color: #27ae60; /* Yeşil */
+  color: #27ae60;
   background-color: #e6ffe6;
   padding: 10px;
   border-radius: 5px;

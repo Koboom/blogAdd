@@ -50,6 +50,28 @@ export const useAuthStore = defineStore('auth', {
       this.error = null;
     },
 
+     async changePassword(passwords) { // { currentPassword, newPassword } bekler
+      this.loading = true;
+      this.error = null;
+      try {
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.token}`, // Token'ı gönderiyoruz
+          },
+        };
+        const response = await apiClient.put('/auth/change-password', passwords, config);
+        this.loading = false;
+        // Başarı mesajı döndür
+        return response.data.message;
+      } catch (err) {
+        this.loading = false;
+        this.error = err.response?.data?.message || 'Şifre değiştirme başarısız oldu.';
+        console.error('Şifre değiştirme hatası:', err.response?.data || err);
+        throw err; // Bileşene hatayı yay
+      }
+    },
+
     async register(userData) {
       this.loading = true;
       this.error = null;
@@ -116,6 +138,8 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
     },
+
+
 
     // Bu kısım Google Auth kullanılıyorsa önemlidir.
     // Google Auth'dan gelen `user` objesi de doğrudan objenin kendisi olmalı, .user değil.

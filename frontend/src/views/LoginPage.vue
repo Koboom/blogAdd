@@ -1,205 +1,145 @@
 <template>
-  <div class="auth-container">
+  <div class="login-container">
     <h1>Giriş Yap</h1>
-    <form @submit.prevent="handleLogin" class="auth-form">
+    <form @submit.prevent="handleLogin" class="login-form">
       <div class="form-group">
         <label for="email">E-posta:</label>
-        <input type="email" id="email" v-model="email" required autocomplete="email">
+        <input type="email" id="email" v-model="email" required />
       </div>
       <div class="form-group">
         <label for="password">Şifre:</label>
-        <input type="password" id="password" v-model="password" required autocomplete="current-password">
+        <input type="password" id="password" v-model="password" required />
       </div>
-      <button type="submit" :disabled="authStore.loading" class="submit-button">
-        {{ authStore.loading ? 'Giriş Yapılıyor...' : 'Giriş Yap' }}
+      <button type="submit" class="submit-button" :disabled="authStore.loading">
+        {{ authStore.loading ? 'Yükleniyor...' : 'Giriş Yap' }}
       </button>
+      <p v-if="authStore.error" class="error-message">{{ authStore.error }}</p>
+      <router-link to="/register" class="register-link">Hesabın yok mu? Kayıt ol.</router-link>
     </form>
-
-    <div class="auth-divider">VEYA</div>
-
-    <button @click="handleGoogleLogin" class="google-login-button" :disabled="authStore.loading">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_Google__G__Reverse_RGB.png" alt="Google Logo" class="google-logo">
-      Google ile Giriş Yap
-    </button>
-
-    <p v-if="authStore.error" class="error-message">{{ authStore.error }}</p>
-    <p class="auth-link">Hesabın yok mu? <router-link to="/register">Kayıt Ol</router-link></p>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/auth';
-import { useRouter } from 'vue-router'; // useRouter import edildiğinden emin olun
-
-const authStore = useAuthStore();
-const router = useRouter(); // useRouter başlatıldı
+import { useRouter } from 'vue-router';
 
 const email = ref('');
 const password = ref('');
+const authStore = useAuthStore();
+const router = useRouter();
 
 const handleLogin = async () => {
-  authStore.clearError(); // Önceki hataları temizle
   try {
+    // Giriş işlemini Pinia store üzerinden başlat
     await authStore.login({ email: email.value, password: password.value });
-    // Giriş başarılı olursa ve hata yoksa anasayfaya yönlendir
-    if (!authStore.error) {
-      router.push('/'); // <-- Anasayfaya yönlendirme satırı
-    }
-  } catch (err) {
-    // Hata zaten Pinia store tarafından yönetiliyor, burada sadece konsola yazdırıyoruz.
-    console.error('Giriş hatası:', err);
-  }
-};
 
-const handleGoogleLogin = () => {
-  // Backend'in Google OAuth başlatma rotasına yönlendir
-  window.location.href = 'http://localhost:5000/api/auth/google';
+    // Giriş başarılı olduysa, kullanıcının rolüne göre yönlendir
+    if (authStore.isAdmin) {
+      console.log('Admin olarak giriş yapıldı, admin paneline yönlendiriliyor.');
+      router.push('/admin-dashboard'); // Eğer admin ise admin paneline yönlendir
+    } else {
+      console.log('Kullanıcı olarak giriş yapıldı, ana sayfaya yönlendiriliyor.');
+      router.push('/'); // Admin değilse ana sayfaya yönlendir
+    }
+
+  } catch (error) {
+    // Hata zaten authStore tarafından yönetiliyor ve error mesajı gösteriliyor
+    console.error('Giriş hatası:', error);
+  }
 };
 </script>
 
 <style scoped>
-.auth-container {
+/* Mevcut stil kodunuz */
+.login-container {
   max-width: 400px;
   margin: 50px auto;
   padding: 30px;
-  border: 1px solid #ddd;
+  background-color: #f9f9f9;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  background-color: #fff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 h1 {
-  font-size: 2.2rem;
-  margin-bottom: 25px;
   color: #333;
+  margin-bottom: 25px;
 }
 
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.form-group {
+.login-form .form-group {
+  margin-bottom: 20px;
   text-align: left;
 }
 
-label {
+.login-form label {
   display: block;
   margin-bottom: 8px;
-  font-weight: bold;
   color: #555;
+  font-weight: bold;
 }
 
-input[type="email"],
-input[type="password"],
-input[type="text"] {
+.login-form input[type="email"],
+.login-form input[type="password"] {
+  width: calc(100% - 22px); /* Padding ve border için ayarlama */
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.login-form input[type="email"]:focus,
+.login-form input[type="password"]:focus {
+  border-color: #42b983;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.2);
+}
+
+.submit-button {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-sizing: border-box; /* Padding'i kutu boyutuna dahil et */
-  font-size: 1rem;
-}
-
-.submit-button { /* Stil sınıfı eklendi */
-  background-color: #007bff;
+  background-color: #42b983;
   color: white;
-  padding: 12px 20px;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
+  border-radius: 5px;
   font-size: 1.1rem;
   font-weight: bold;
-  transition: background-color 0.3s ease;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .submit-button:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: #36a273;
+  transform: translateY(-2px);
 }
 
 .submit-button:disabled {
-  background-color: #cccccc;
+  background-color: #a0a0a0;
   cursor: not-allowed;
-}
-
-.auth-divider {
-  margin: 25px 0;
-  font-size: 0.9rem;
-  color: #777;
-  position: relative;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 40%;
-  height: 1px;
-  background-color: #eee;
-}
-
-.auth-divider::before {
-  left: 0;
-}
-
-.auth-divider::after {
-  right: 0;
-}
-
-.google-login-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background-color: #4285f4; /* Google mavisi */
-  color: white;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
-  width: 100%;
-}
-
-.google-login-button:hover:not(:disabled) {
-  background-color: #357ae8;
-}
-
-.google-login-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.google-logo {
-  width: 20px;
-  height: 20px;
 }
 
 .error-message {
-  color: #dc3545; /* Kırmızı hata mesajı */
+  color: #e74c3c;
   margin-top: 15px;
   font-size: 0.95rem;
+  background-color: #ffe0e0;
+  border: 1px solid #e74c3c;
+  padding: 10px;
+  border-radius: 5px;
 }
 
-.auth-link {
-  margin-top: 20px;
-  font-size: 0.95rem;
-  color: #555;
-}
-
-.auth-link a {
+.register-link {
+  display: block;
+  margin-top: 25px;
   color: #007bff;
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 600;
+  transition: color 0.3s ease;
 }
 
-.auth-link a:hover {
+.register-link:hover {
+  color: #0056b3;
   text-decoration: underline;
 }
 </style>
