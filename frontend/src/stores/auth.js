@@ -1,31 +1,32 @@
 // frontend/src/stores/auth.js
+
 import { defineStore } from 'pinia';
 import apiClient from '../api';
+import router from '../router'; // router'ı import ettiğinizden emin olun
 
 export const useAuthStore = defineStore('auth', {
   state: () => {
+    // ... (state kısmı aynı kalacak, çünkü localStorage okuma mantığı doğru) ...
     let user = null;
     let token = null;
 
-    // localStorage'dan kullanıcı verisini güvenli bir şekilde ayrıştırma
     const storedUser = localStorage.getItem('user');
     if (storedUser && storedUser !== "undefined") {
       try {
         user = JSON.parse(storedUser);
       } catch (e) {
         console.error("localStorage'dan kullanıcı ayrıştırılırken hata:", e);
-        localStorage.removeItem('user'); // Bozuk veriyi temizle
+        localStorage.removeItem('user');
       }
     }
 
-    // localStorage'dan token'ı güvenli bir şekilde alma
     const storedToken = localStorage.getItem('token');
     if (storedToken && storedToken !== "undefined") {
       token = storedToken;
     }
 
     return {
-      user: user, // Bu user objesi backend'den gelen user objesini tutacak
+      user: user,
       token: token,
       loading: false,
       error: null,
@@ -33,13 +34,12 @@ export const useAuthStore = defineStore('auth', {
   },
 
   getters: {
+    // ... (getters kısmı aynı kalacak, doğru tanımlanmış) ...
     isAuthenticated: (state) => !!state.token,
     isAdmin: (state) => state.user?.role === 'admin',
-    // Kullanıcı adı veya e-posta için yeni bir getter ekleyebiliriz
-    // Bu getter, user objesi içinde username varsa onu, yoksa email'i döner.
     userNameOrEmail: (state) => {
       if (state.user) {
-        return state.user.username || state.user.email || 'Kullanıcı';
+        return state.user.username ?? state.user.email ?? 'Kullanıcı';
       }
       return '';
     }
@@ -55,10 +55,22 @@ export const useAuthStore = defineStore('auth', {
       this.error = null;
       try {
         const response = await apiClient.post('/auth/register', userData);
-        this.user = response.data.user; // Backend'den gelen user objesi burada set ediliyor
+        // Backend'den gelen yanıtın doğrudan kullanıcı bilgilerini içerdiğini varsayıyoruz
+        this.user = {
+          _id: response.data._id,
+          username: response.data.username,
+          email: response.data.email,
+          role: response.data.role,
+        };
         this.token = response.data.token;
-        localStorage.setItem('user', JSON.stringify(this.user)); // user objesini string'e çevirip kaydet
+
+        if (this.user) {
+          localStorage.setItem('user', JSON.stringify(this.user));
+        } else {
+          localStorage.removeItem('user');
+        }
         localStorage.setItem('token', this.token);
+        router.push('/');
       } catch (err) {
         this.error = err.response?.data?.message || 'Kayıt başarısız oldu.';
         console.error('Kayıt hatası:', err);
@@ -73,10 +85,22 @@ export const useAuthStore = defineStore('auth', {
       this.error = null;
       try {
         const response = await apiClient.post('/auth/login', credentials);
-        this.user = response.data.user; // Backend'den gelen user objesi burada set ediliyor
+        // Backend'den gelen yanıtın doğrudan kullanıcı bilgilerini içerdiğini varsayıyoruz
+        this.user = {
+          _id: response.data._id,
+          username: response.data.username,
+          email: response.data.email,
+          role: response.data.role,
+        };
         this.token = response.data.token;
-        localStorage.setItem('user', JSON.stringify(this.user)); // user objesini string'e çevirip kaydet
+
+        if (this.user) {
+          localStorage.setItem('user', JSON.stringify(this.user));
+        } else {
+          localStorage.removeItem('user');
+        }
         localStorage.setItem('token', this.token);
+        router.push('/');
       } catch (err) {
         this.error = err.response?.data?.message || 'Giriş başarısız oldu.';
         console.error('Giriş hatası:', err);
@@ -93,11 +117,17 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('token');
     },
 
-    setGoogleAuth(token, user) { // Google Auth için kullanıcı ve token'ı set et
+    // Bu kısım Google Auth kullanılıyorsa önemlidir.
+    // Google Auth'dan gelen `user` objesi de doğrudan objenin kendisi olmalı, .user değil.
+    setGoogleAuth(token, user) {
         this.token = token;
-        this.user = user;
+        this.user = user; // Burası zaten doğruysa dokunmaya gerek yok.
+        if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+        } else {
+            localStorage.removeItem('user');
+        }
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
     }
   },
 });
