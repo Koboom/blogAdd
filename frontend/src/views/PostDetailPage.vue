@@ -9,6 +9,14 @@
         Yazar: {{ postStore.postDetail.author?.username || 'Bilinmiyor' }} |
         Tarih: {{ formatDate(postStore.postDetail.createdAt) }}
       </p>
+
+      <img
+        v-if="postStore.postDetail.image"
+        :src="getImageUrl(postStore.postDetail.image)"
+        :alt="postStore.postDetail.title"
+        class="blog-post-image"
+      />
+
       <div class="post-content-full">{{ postStore.postDetail.content }}</div>
 
       <div v-if="canModifyPost" class="post-actions">
@@ -36,6 +44,13 @@ const route = useRoute();
 const router = useRouter();
 const postStore = usePostStore();
 const authStore = useAuthStore();
+
+// Resim URL'sini oluşturan fonksiyon
+const getImageUrl = (imagePath) => {
+  // Backend'in URL'si ile resim yolunu birleştirin
+  // `imagePath` "/uploads/image-1753024506420.jpg" gibi geliyor.
+  return `http://localhost:5000${imagePath}`;
+};
 
 // Watch kullanarak route.params.id değiştiğinde post'u tekrar yükle
 // Bu, bir post sayfasından başka bir post sayfasına doğrudan geçiş yapıldığında önemlidir.
@@ -193,5 +208,15 @@ const formatDate = (dateString) => {
   background-color: #fffbe6;
   color: #faad14;
   border: 1px solid #ffe58f;
+}
+/* ... (Mevcut stilleriniz) ... */
+
+.blog-post-image {
+  max-width: 100%; /* Resmin div'den taşmasını engeller */
+  height: auto; /* Oranını korur */
+  display: block; /* Bloğun altında boşluk kalmaması için */
+  margin: 20px 0; /* Üstte ve altta boşluk bırakır */
+  border-radius: 8px; /* Köşeleri yuvarlar */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Hafif bir gölge verir */
 }
 </style>

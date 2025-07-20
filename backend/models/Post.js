@@ -26,7 +26,7 @@ const PostSchema = new mongoose.Schema({
     },
     image: {
         type: String,
-        default: 'https://via.placeholder.com/600x400?text=Blog+Post'
+        default: null,
     },
     category: {
         type: String,

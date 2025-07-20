@@ -2,21 +2,21 @@ version: '3.8'
 
 services:
   backend: # Backend servisimizin adı
-    build: ./backend # Backend klasöründeki Dockerfile'ı kullan
+    build: ./backend
     container_name: blogadd-backend
     ports:
-      - "5000:5000" # Host makinedeki 5000 portunu konteynerdeki 5000 portuna yönlendir
+      - "5000:5000"
     environment:
-      # Ortam değişkenlerini burada tanımlayın. MONGO_URI, 'db' servisine işaret ediyor.
-      NODE_ENV: development
-      PORT: 5000
-      MONGO_URI: mongodb://db:27017/blogapp # Önemli: Docker Compose ağı içinde 'db' adı geçerli olacak
-      JWT_SECRET: cok-gizli-anahtar
-      SESSION_SECRET: baska-bir-cok-gizli-anahtar
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGO_URI=mongodb://db:27017/blogapp
+      - JWT_SECRET=cok-gizli-anahtar
+      - SESSION_SECRET=baska-bir-cok-gizli-anahtar
     depends_on:
-      - db # Backend servisi, db servisi başlamadan başlamaz (sıralama garantisi verir)
-    volumes:
+      - db
+    volumes: # <-- BURAYI GÜNCELLEYİN
       - ./backend:/app # Geliştirme sırasında kod değişikliklerinin yansıması için
+      - ./uploads:/app/uploads # <-- YENİ EKLENEN SATIR: Host'taki uploads klasörünü container'daki /app/uploads'a eşle
       - /app/node_modules # node_modules klasörünü host'a bağlamayarak bağımlılık sorunlarını önler
 
   db: # MongoDB servisimizin adı

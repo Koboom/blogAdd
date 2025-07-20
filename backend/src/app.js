@@ -5,6 +5,7 @@ const cors = require('cors');
 const authRoutes = require('../routes/authRoutes');
 const postRoutes = require('../routes/postRoutes');
 const favoriteRoutes = require('../routes/favoriteRoutes');
+const path = require('path');
 
 // <<< YENİ İMPORTLAR BAŞLANGICI >>>
 const passport = require('passport'); // Passport.js eklendi
@@ -59,6 +60,7 @@ app.use(passport.session()); // Oturum tabanlı kimlik doğrulama için Passport
 require('../config/passport'); // <<< YOL DÜZELTİLDİ: src klasöründen bir üst dizine çıkıp config'e gidiyoruz
 // <<< YENİ: Passport.js Middleware'i Sonu >>>
 
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads'))); // Statik dosyalar için uploads klasörünü erişilebilir yap
 
 // Test rotası
 app.get('/', (req, res) => {

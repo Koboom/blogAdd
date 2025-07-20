@@ -33,9 +33,11 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router'; // useRouter hook'u eklendi
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
+const router = useRouter(); // router instance'ı tanımlandı
 
 const username = ref('');
 const email = ref('');
@@ -44,7 +46,8 @@ const password = ref('');
 const handleRegister = async () => {
   try {
     await authStore.register({ username: username.value, email: email.value, password: password.value });
-    // Kayıt başarılı olursa router otomatik olarak ana sayfaya yönlendirecek
+    // Kayıt başarılı olduğunda kullanıcıyı ana sayfaya yönlendir
+    router.push('/');
   } catch (err) {
     // Hata Pinia store tarafından yönetiliyor
     console.error('Kayıt hatası:', err);
@@ -58,11 +61,7 @@ const handleGoogleLogin = () => {
 </script>
 
 <style scoped>
-/* LoginPage.vue'daki aynı stil kurallarını kullanacağız.
-   Eğer bu stilleri birden fazla yerde kullanacaksanız,
-   bunları ayrı bir CSS dosyasına taşıyıp import etmek daha iyidir.
-   Şimdilik doğrudan kopyalayabiliriz veya ileride refactor edebiliriz. */
-
+/* Mevcut stilleriniz aynı kalacak */
 .auth-container {
   max-width: 400px;
   margin: 50px auto;
