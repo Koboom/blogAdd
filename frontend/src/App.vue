@@ -6,7 +6,7 @@
       </div>
       <div class="navbar-links">
         <router-link to="/">Anasayfa</router-link>
-        <router-link v-if="authStore.isAuthenticated" to="/create">Yeni Yazı Oluştur</router-link>
+        <router-link v-if="authStore.isAuthenticated" to="/create">Yeni Yazi Oluştur</router-link>
         <router-link v-if="authStore.isAuthenticated" to="/profile">Profil</router-link>
         <router-link v-if="!authStore.isAuthenticated" to="/login">Giriş Yap</router-link>
         <router-link v-if="!authStore.isAuthenticated" to="/register">Kayıt Ol</router-link>
