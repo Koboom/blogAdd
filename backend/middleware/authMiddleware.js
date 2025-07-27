@@ -1,50 +1,50 @@
+// backend/middleware/authMiddleware.js
+
 const jwt = require('jsonwebtoken');
-const asyncHandler = require('express-async-handler'); // Hataları yakalamak için
-const User = require('../models/User'); // Kullanıcı modelini import et
+const asyncHandler = require('express-async-handler');
+const User = require('../models/User');
 
-// @desc    Token'ı doğrula ve kullanıcıyı request objesine ekle
-const protect = async (req, res, next) => {
-    let token;
+const protect = asyncHandler(async (req, res, next) => {
+  let token;
 
-    // Authorization başlığında Bearer token var mı kontrol et
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            // Token'ı başlıkta "Bearer TOKEN_STRING" formatından al
-            token = req.headers.authorization.split(' ')[1];
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Token'ı başlıkdan al
+      token = req.headers.authorization.split(' ')[1];
 
-            // Token'ı doğrula
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Token'ı doğrula
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // Token'daki ID ile kullanıcıyı bul ve parola hariç bilgilerini request objesine ekle
-            req.user = await User.findById(decoded.id).select('-password');
+      // Token'daki ID'ye göre kullanıcıyı bul ve şifre hariç bilgileri ata
+      req.user = await User.findById(decoded.id).select('-password');
 
-            if (!req.user) {
-                return res.status(401).json({ message: 'Kullanıcı bulunamadı, yetkilendirme reddedildi.' });
-            }
-
-            next(); // Sonraki middleware'e veya rotaya geç
-        } catch (error) {
-            console.error(error);
-            res.status(401).json({ message: 'Yetkilendirme reddedildi, token geçersiz.' });
-            throw new Error('Yetkilendirme başarısız, token geçersiz.');
-        }
+      next(); // Bir sonraki middleware'e geç
+    } catch (error) {
+      console.error(error);
+      res.status(401);
+      throw new Error('Yetkilendirme reddedildi, token geçersiz.');
     }
+  }
 
-    if (!token) {
-        res.status(401).json({ message: 'Yetkilendirme reddedildi, token yok.' });
-        throw new Error('Yetkilendirme başarısız, token bulunamadı.');
+  if (!token) {
+    res.status(401);
+    throw new Error('Yetkilendirme reddedildi, token bulunamadı.');
+  }
+});
+
+// Rol yetkilendirme middleware'i
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    // req.user, protect middleware'inden gelir
+    if (!req.user || !roles.includes(req.user.role)) {
+      res.status(403); // Forbidden
+      throw new Error(`Rolünüz (${req.user ? req.user.role : 'yok'}) bu işlemi yapmaya yetkili değil.`);
     }
+    next();
+  };
 };
 
-// @desc    Kullanıcının yönetici (admin) rolüne sahip olup olmadığını kontrol et
-const admin = (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
-        next(); // Yönetici ise devam et
-    } else {
-        res.status(403).json({ message: 'Bu işleme yetkiniz yok, yönetici değilsiniz.' });
-    }
+module.exports = {
+  protect,
+  authorizeRoles,
 };
-
-module.exports = { protect, admin };
-// Bu middleware, korunan rotalarda kullanılır ve kullanıcıyı doğrular
-// Ayrıca, kullanıcının yönetici olup olmadığını kontrol eder.
