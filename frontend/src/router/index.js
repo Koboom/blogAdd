@@ -7,6 +7,7 @@ import RegisterPage from '../views/RegisterPage.vue';
 import AuthSuccessPage from '../views/AuthSuccessPage.vue';
 // import CreatePostPage from '../views/CreatePostPage.vue'; // Artık CreatePostPage'e gerek yok
 import PostDetailPage from '../views/PostDetailPage.vue';
+import CreatePostPage from '../views/CreatePostPage.vue';
 import EditPostPage from '../views/EditPostPage.vue';
 import UserProfilePage from '../views/UserProfilePage.vue'; // veya Profile.vue
 import NotFoundPage from '../views/NotFoundPage.vue';
@@ -41,7 +42,7 @@ const routes = [
   {
     path: '/create',
     name: 'CreatePost',
-    component: EditPostPage,
+    component: CreatePostPage,
     meta: { requiresAuth: true },
   },
   {
@@ -122,7 +123,7 @@ router.beforeEach(async (to, from, next) => {
       // Yazıyı çekmeden önce, postStore'un `selectedPost` state'ini temizlemek faydalı olabilir
       // postStore.selectedPost = null; // Opsiyonel: her seferinde temiz bir başlangıç için
       await postStore.fetchPostById(to.params.id); // Yazıyı çek
-      const post = postStore.selectedPost;
+      const post = postStore.currentPost; // Pinia'dan gelen güncel post objesi
 
       if (!post) {
         // Yazı bulunamazsa veya hata olursa
@@ -133,7 +134,7 @@ router.beforeEach(async (to, from, next) => {
 
       // Kullanıcının yazıyı düzenleme/silme yetkisi yoksa
       // authStore.user._id veya user._id kullanabiliriz. Pinia store daha günceldir.
-      if (!(authStore.user?._id === post.user?._id || authStore.isAdmin)) {
+      if (!(authStore.user?._id === post.author?._id || authStore.isAdmin)) {
         alert('Bu yazıyı düzenlemeye yetkiniz bulunmamaktadır.');
         next('/');
         return;
