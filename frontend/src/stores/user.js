@@ -1,52 +1,46 @@
 // frontend/src/stores/user.js
-// Bu dosya, kullanıcılarla ilgili API çağrılarını (kullanıcıları getir, rol güncelle, kullanıcı sil, admin istatistiklerini getir) yönetir.
-
 import { defineStore } from 'pinia';
-import apiClient from '../api'; // Axios instance'ımızı içeri aktarıyoruz
+import apiClient from '../api';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    users: [], // Tüm kullanıcıları tutacak dizi
-    loading: false, // Kullanıcı listesi yükleniyor mu durumu
-    error: null, // Kullanıcı listesi veya işlemleri için hata mesajı
-
-    adminStats: { // Admin paneli istatistiklerini tutacak obje
+    users: [],
+    loading: false,
+    error: null,
+    adminStats: {
       totalUsers: 0,
       totalPosts: 0,
-      pendingPosts: 0,
+      unpublishedPosts: 0, // isApproved yerine isPublished kullanıldığı için adı değişti
     },
-    statsLoading: false, // İstatistikler yükleniyor mu durumu
-    statsError: null,    // İstatistikler için hata mesajı
+    statsLoading: false,
+    statsError: null,
   }),
   actions: {
-    // Tüm kullanıcıları backend'den çeker
     async fetchUsers() {
       this.loading = true;
-      this.error = null; // Önceki hataları temizle
+      this.error = null;
       try {
-        const response = await apiClient.get('/users'); // /api/users rotasına GET isteği
+        const response = await apiClient.get('/users');
         this.users = response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Kullanıcılar getirilirken bir hata oluştu.';
         console.error('Error fetching users:', error);
-        throw error; // Hatayı tekrar fırlat ki bileşenler de yakalayabilsin
+        throw error;
       } finally {
         this.loading = false;
       }
     },
 
-    // Belirli bir kullanıcının rolünü günceller
     async updateUserRole(userId, newRole) {
       this.loading = true;
       this.error = null;
       try {
-        const response = await apiClient.put(`/users/${userId}/role`, { role: newRole }); // /api/users/:id/role rotasına PUT isteği
-        // Güncellenen kullanıcıyı store'daki users dizisinde bul ve rolünü güncelle
+        const response = await apiClient.put(`/users/${userId}/role`, { role: newRole });
         const index = this.users.findIndex(user => user._id === userId);
         if (index !== -1) {
           this.users[index].role = response.data.role;
         }
-        return response.data; // Güncellenen kullanıcı verisini döndür
+        return response.data;
       } catch (error) {
         this.error = error.response?.data?.message || 'Kullanıcı rolü güncellenirken bir hata oluştu.';
         console.error(`Error updating user role ${userId}:`, error);
@@ -56,13 +50,11 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // Belirli bir kullanıcıyı siler
     async deleteUser(userId) {
       this.loading = true;
       this.error = null;
       try {
-        await apiClient.delete(`/users/${userId}`); // /api/users/:id rotasına DELETE isteği
-        // Silinen kullanıcıyı store'daki users dizisinden çıkar
+        await apiClient.delete(`/users/${userId}`);
         this.users = this.users.filter(user => user._id !== userId);
       } catch (error) {
         this.error = error.response?.data?.message || 'Kullanıcı silinirken bir hata oluştu.';
@@ -73,13 +65,14 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // Admin paneli için genel istatistikleri çeker
+    // Admin istatistiklerini çek
     async fetchAdminStats() {
       this.statsLoading = true;
       this.statsError = null;
       try {
-        const response = await apiClient.get('/users/stats'); // /api/users/stats rotasına GET isteği
-        this.adminStats = response.data; // Çekilen istatistikleri adminStats state'ine ata
+        // Backend'deki /users/stats rotası artık unpublishedPosts dönecek
+        const response = await apiClient.get('/users/stats');
+        this.adminStats = response.data;
       } catch (error) {
         this.statsError = error.response?.data?.message || 'Admin istatistikleri getirilirken bir hata oluştu.';
         console.error('Error fetching admin stats:', error);
@@ -89,16 +82,13 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // Hata mesajlarını temizler
     clearError() {
       this.error = null;
       this.statsError = null;
     }
   },
   getters: {
-    // Tüm kullanıcıları döndüren getter
     allUsers: (state) => state.users,
-    // Admin istatistiklerini döndüren getter
     getAdminStats: (state) => state.adminStats,
   },
 });

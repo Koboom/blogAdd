@@ -74,15 +74,13 @@ const getAdminStats = asyncHandler(async (req, res) => {
   // Toplam gönderi sayısını al
   const totalPosts = await Post.countDocuments();
 
-  // Bekleyen (onaylanmamış) gönderi sayısını al
-  // Varsayım: Post modelinde 'isApproved' veya 'status' gibi bir alan var ve varsayılanı false/pending
-  // Eğer böyle bir alanınız yoksa, bu kısmı atlayabilir veya Post modelinize ekleyebilirsiniz.
-  const pendingPosts = await Post.countDocuments({ isApproved: false }); // isApproved alanı varsayımı
+  // Yayınlanmamış gönderi sayısını al (isPublished: false olanları say)
+  const unpublishedPosts = await Post.countDocuments({ isPublished: false }); // DÜZELTİLDİ: isApproved yerine isPublished kullanıldı
 
   res.status(200).json({
     totalUsers,
     totalPosts,
-    pendingPosts,
+    unpublishedPosts, // DÜZELTİLDİ: pendingPosts yerine unpublishedPosts gönderildi
   });
 });
 
@@ -90,5 +88,5 @@ module.exports = {
   getUsers,
   updateUserRole,
   deleteUser,
-  getAdminStats, // Yeni fonksiyonu dışa aktarın
+  getAdminStats,
 };

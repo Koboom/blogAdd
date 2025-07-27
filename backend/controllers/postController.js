@@ -1,193 +1,185 @@
+// backend/controllers/postController.js
+
+const asyncHandler = require('express-async-handler');
 const Post = require('../models/Post');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 
-// @desc    Tüm blog gönderilerini getir
+// @desc    Tüm gönderileri getir (Halk için sadece yayınlanmış olanlar)
 // @route   GET /api/posts
-// @access  Public
-const getPosts = async (req, res) => {
-    try {
-        // En yeni gönderiler en başta olacak şekilde sırala ve yazar bilgilerini de getir
-        const posts = await Post.find({})
-                                 .populate('author', 'username email') // Sadece username ve email alanlarını getir
-                                 .sort({ createdAt: -1 }); // En yeniyi en üste getir
-        res.json(posts);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Sunucu hatası.' });
-    }
-};
+// @access  Public (sadece yayınlanmış), Private/Admin (tümünü görebilir)
+const getPosts = asyncHandler(async (req, res) => {
+  let query;
 
-// @desc    Belirli bir blog gönderisini getir
+  if (req.user && req.user.role === 'admin') {
+    query = Post.find().populate('author', 'username email');
+  } else {
+    query = Post.find({ isPublished: true }).populate('author', 'username email');
+  }
+
+  const posts = await query.sort({ createdAt: -1 });
+  res.status(200).json(posts);
+});
+
+// @desc    Belirli bir gönderiyi ID'ye göre getir
 // @route   GET /api/posts/:id
-// @access  Public
-const getPostById = async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id).populate('author', 'username email');
-        if (post) {
-            res.json(post);
-        } else {
-            res.status(404).json({ message: 'Gönderi bulunamadı.' });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Sunucu hatası.' });
-    }
-};
+// @access  Public (sadece yayınlanmış), Private (yazar veya admin tümünü görebilir)
+const getPostById = asyncHandler(async (req, res) => {
+  console.log('getPostById çağrıldı. Gönderi ID:', req.params.id);
+  console.log('req.user:', req.user);
+  const post = await Post.findById(req.params.id).populate('author', 'username email');
+  console.log('Post.findById sonucu:', post);
 
-// @desc    Yeni bir blog gönderisi oluştur
+  if (!post) {
+    res.status(404);
+    throw new Error('Gönderi bulunamadı.');
+  }
+
+  // YENİ VE BASİTLEŞTİRİLMİŞ YETKİLENDİRME MANTIĞI
+  // Eğer kullanıcı admin ise, yayınlanmamış olsa bile gönderiyi görebilir.
+  if (req.user && req.user.role === 'admin') {
+    console.log('Debug: Kullanıcı admin, erişime izin verildi. Gönderi gönderiliyor.'); // YENİ DEBUG LOG
+    res.status(200).json(post);
+    return; // Admin ise burada bitir
+  }
+
+  // Eğer gönderi yayınlanmamışsa ve kullanıcı admin değilse,
+  // sadece gönderinin yazarı görebilir.
+  if (!post.isPublished) {
+    if (req.user && post.author && req.user.id.toString() === post.author._id.toString()) {
+      console.log('Debug: Kullanıcı yazar, yayınlanmamış gönderiye erişime izin verildi.');
+      res.status(200).json(post);
+      return; // Yazar ise burada bitir
+    } else {
+      console.log('Debug: Yayınlanmamış gönderi ve kullanıcı yazar/admin değil. 403 Forbidden.');
+      res.status(403);
+      throw new Error('Bu gönderiye erişim yetkiniz yok. Henüz yayınlanmamış olabilir.');
+    }
+  }
+
+  // Gönderi yayınlanmışsa veya yukarıdaki koşullar karşılanmadıysa, erişime izin ver
+  console.log('Debug: Gönderi yayınlanmış veya yetkili kullanıcı. Erişime izin verildi.');
+  res.status(200).json(post);
+});
+
+// @desc    Yeni gönderi oluştur
 // @route   POST /api/posts
-// @access  Private (Sadece oturum açmış kullanıcılar)
-const createPost = async (req, res) => {
-    const { title, content } = req.body;
-    // Yüklenen dosyanın yolunu al, eğer bir dosya yüklendiyse
-    // req.file Multer tarafından set edilir ve dosya bilgilerini içerir.
-    const imagePath = req.file ? `/uploads/${req.file.filename.replace(/\\/g, '/')}` : undefined; // <-- BU SATIRI EKLEYİN/DÜZELTİN
+// @access  Private
+const createPost = asyncHandler(async (req, res) => {
+  const { title, content, image, category, tags } = req.body;
 
-    // ... (validasyonlar)
+  if (!title || !content) {
+    res.status(400);
+    throw new Error('Lütfen başlık ve içerik alanlarını doldurun.');
+  }
 
-    if (!req.user) {
-        return res.status(401).json({ message: 'Gönderi oluşturmak için giriş yapmalısınız.' });
-    }
+  const post = await Post.create({
+    title,
+    content,
+    image: req.file ? `/uploads/${req.file.filename}` : image,
+    author: req.user.id,
+    category: category || 'Genel',
+    tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim())) : [],
+    isPublished: false
+  });
 
-    try {
-        const post = new Post({
-            title,
-            content,
-            author: req.user._id, // Oturum açmış kullanıcının ID'sini yazar olarak ata
-            image: imagePath // <-- BURASI ÖNEMLİ: Yüklenen resmin yolunu burada ata!
-        });
+  res.status(201).json(post);
+});
 
-        const createdPost = await post.save();
-        // Oluşturulan gönderiyi yazar bilgileriyle birlikte döndür
-        const populatedPost = await Post.findById(createdPost._id).populate('author', 'username email');
-        res.status(201).json(populatedPost);
-    } catch (error) {
-        console.error(error);
-        // Multer'dan gelen dosya yükleme hatasını yakalayabiliriz
-        if (error instanceof multer.MulterError) {
-            return res.status(400).json({ message: `Dosya yükleme hatası: ${error.message}` });
-        }
-        // Hata durumunda yüklenen dosyayı sil
-        if (req.file) { // <-- BU BLOĞU EKLEYİN
-            fs.unlink(path.join(__dirname, '..', '..', 'uploads', req.file.filename), (err) => {
-                if (err) console.error('Hata oluştuğu için yüklenen dosya silinirken hata:', err);
-            });
-        }
-        res.status(400).json({ message: 'Gönderi oluşturulamadı. Lütfen geçerli veriler sağlayın.', error: error.message });
-    }
-};
-
-// @desc    Blog gönderisini güncelle
+// @desc    Gönderiyi güncelle
 // @route   PUT /api/posts/:id
-// @access  Private (Sadece gönderiyi oluşturan kullanıcı veya yönetici)
-const updatePost = async (req, res) => {
-    const { title, content } = req.body;
-    // Yüklenen yeni dosyanın yolu (eğer varsa)
-    const newImagePath = req.file ? `/uploads/${req.file.filename.replace(/\\/g, '/')}` : undefined; // undefined, eğer dosya yoksa mevcut değeri korumak için
+// @access  Private (sadece yazar veya yönetici)
+const updatePost = asyncHandler(async (req, res) => {
+  const { title, content, image, category, tags } = req.body;
 
-    // Frontend'den resmin silinmesi istendiyse
-    const removeImageFlag = req.body.image === 'REMOVE_IMAGE'; // Frontend'den gelen özel işaretçi
+  let post = await Post.findById(req.params.id);
 
-    // Validasyonlar
-    if (title && title.trim().length < 3) {
-        return res.status(400).json({ message: 'Başlık en az 3 karakter içermelidir.' });
-    }
-    if (content && content.trim().length < 20) { // İçerik en az 20 karakter olmalı
-        return res.status(400).json({ message: 'İçerik en az 20 karakter içermelidir.' });
-    }
+  if (!post) {
+    res.status(404);
+    throw new Error('Gönderi bulunamadı.');
+  }
 
-    try {
-        const post = await Post.findById(req.params.id);
+  if (post.author.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
+    res.status(401);
+    throw new Error('Bu gönderiyi güncelleme yetkiniz yok.');
+  }
 
-        if (post) {
-            if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-                // Eğer yeni bir dosya yüklenmişse ve yetki yoksa, yüklenen dosyayı sil
-                if (req.file) {
-                    fs.unlink(path.join(__dirname, '..', '..', 'uploads', req.file.filename), (err) => {
-                        if (err) console.error('Yetkisiz yüklenen dosya silinirken hata:', err);
-                    });
-                }
-                return res.status(403).json({ message: 'Bu gönderiyi güncellemeye yetkiniz yok.' });
-            }
+  post.title = title || post.title;
+  post.content = content || post.content;
+  if (req.file) {
+    post.image = `/uploads/${req.file.filename}`;
+  } else if (image !== undefined && image !== 'REMOVE_IMAGE') {
+    post.image = image;
+  } else if (image === 'REMOVE_IMAGE') {
+    post.image = null;
+  }
 
-            // Başlık ve içerik güncellemeleri
-            post.title = title !== undefined ? title : post.title;
-            post.content = content !== undefined ? content : post.content;
+  post.category = category || post.category;
+  post.tags = tags ? (Array.isArray(tags) ? tags : tags.split(',').map(tag => tag.trim())) : post.tags;
 
-            // Resim güncelleme mantığı
-            if (newImagePath) {
-                // Yeni resim yüklendi, eski resmi sil (eğer varsa)
-                if (post.image) {
-                    const oldImagePath = path.join(__dirname, '..', '..', post.image);
-                    fs.unlink(oldImagePath, (err) => {
-                        if (err) console.error('Eski resim silinirken hata:', err);
-                    });
-                }
-                post.image = newImagePath; // Yeni resim yolunu ata
-            } else if (removeImageFlag) {
-                // Resim silme bayrağı gönderildi ve mevcut resim varsa sil
-                if (post.image) {
-                    const oldImagePath = path.join(__dirname, '..', '..', post.image);
-                    fs.unlink(oldImagePath, (err) => {
-                        if (err) console.error('Resim kaldırılırken hata:', err);
-                    });
-                }
-                post.image = null; // Resmi null yap
-            }
-            // Eğer ne yeni resim yüklendi ne de silme bayrağı gönderildi ise, post.image değişmez.
+  const updatedPost = await post.save();
 
-            const updatedPost = await post.save();
-            const populatedPost = await Post.findById(updatedPost._id).populate('author', 'username email');
-            res.json(populatedPost);
-        } else {
-            // Eğer yeni bir dosya yüklenmişse ve yazı bulunamazsa, yüklenen dosyayı sil
-            if (req.file) {
-                fs.unlink(path.join(__dirname, '..', '..', 'uploads', req.file.filename), (err) => {
-                    if (err) console.error('Yazı bulunamadığı için yüklenen dosya silinirken hata:', err);
-                });
-            }
-            res.status(404).json({ message: 'Gönderi bulunamadı.' });
-        }
-    } catch (error) {
-        console.error(error);
-        // Multer'dan gelen dosya yükleme hatasını yakala
-        if (error instanceof multer.MulterError) {
-            return res.status(400).json({ message: `Dosya yükleme hatası: ${error.message}` });
-        }
-        res.status(400).json({ message: 'Gönderi güncellenemedi. Lütfen geçerli veriler sağlayın.', error: error.message });
-    }
-};
+  res.status(200).json(updatedPost);
+});
 
-// @desc    Blog gönderisini sil
+// @desc    Gönderiyi sil
 // @route   DELETE /api/posts/:id
-// @access  Private (Sadece gönderiyi oluşturan kullanıcı veya yönetici)
-const deletePost = async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
+// @access  Private (sadece yazar veya yönetici)
+const deletePost = asyncHandler(async (req, res) => {
+  const post = await Post.findById(req.params.id);
 
-        if (post) {
-            // Sadece yazar veya yönetici silebilir
-            if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-                return res.status(403).json({ message: 'Bu gönderiyi silmeye yetkiniz yok.' });
-            }
+  if (!post) {
+    res.status(404);
+    throw new Error('Gönderi bulunamadı.');
+  }
 
-            await Post.deleteOne({ _id: post._id }); // post.remove() yerine deleteOne kullanılıyor
-            res.json({ message: 'Gönderi başarıyla silindi.' });
-        } else {
-            res.status(404).json({ message: 'Gönderi bulunamadı.' });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Sunucu hatası.' });
-    }
-};
+  if (post.author.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
+    res.status(401);
+    throw new Error('Bu gönderiyi silme yetkiniz yok.');
+  }
+
+  await post.deleteOne();
+  res.status(200).json({ message: 'Gönderi başarıyla silindi.' });
+});
+
+// @desc    Bir gönderinin yayınlanma durumunu güncelle (Admin Paneli İçin)
+// @route   PUT /api/posts/:id/publish
+// @access  Private/Admin
+const updatePostPublicationStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isPublished } = req.body;
+
+  const post = await Post.findById(id);
+
+  if (!post) {
+    res.status(404);
+    throw new Error('Gönderi bulunamadı.');
+  }
+
+  if (typeof isPublished !== 'boolean') {
+    res.status(400);
+    throw new Error('Geçersiz yayın durumu belirtildi. "isPublished" boolean olmalıdır.');
+  }
+
+  post.isPublished = isPublished;
+  await post.save();
+
+  res.status(200).json(post);
+});
+
+// @desc    Yayınlanmamış tüm gönderileri getir (Admin Paneli İçin)
+// @route   GET /api/posts/unpublished
+// @access  Private/Admin
+const getUnpublishedPosts = asyncHandler(async (req, res) => {
+  const unpublishedPosts = await Post.find({ isPublished: false }).populate('author', 'username email').sort({ createdAt: -1 });
+  res.status(200).json(unpublishedPosts);
+});
+
 
 module.exports = {
-    getPosts,
-    getPostById,
-    createPost,
-    updatePost,
-    deletePost
+  getPosts,
+  getPostById,
+  createPost,
+  updatePost,
+  deletePost,
+  updatePostPublicationStatus,
+  getUnpublishedPosts
 };

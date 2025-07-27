@@ -2,7 +2,7 @@
   <div class="admin-dashboard-container">
     <div class="dashboard-card">
       <h1 class="main-title">Admin Paneli</h1>
-      <p class="subtitle">Kullanıcıları ve sistem ayarlarını buradan yönetin.</p>
+      <p class="subtitle">Kullanıcıları, gönderileri ve sistem ayarlarını buradan yönetin.</p>
 
       <!-- İstatistikler Bölümü -->
       <section class="stats-section">
@@ -24,15 +24,15 @@
             <span class="stat-value">{{ userStore.adminStats.totalPosts }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Bekleyen Gönderi Sayısı:</span>
-            <span class="stat-value">{{ userStore.adminStats.pendingPosts }}</span>
+            <span class="stat-label">Yayınlanmamış Gönderi Sayısı:</span>
+            <span class="stat-value">{{ userStore.adminStats.unpublishedPosts }}</span>
           </div>
         </div>
       </section>
 
-      <!-- Yüklenme Durumu (Kullanıcı Listesi İçin) -->
-      <div v-if="userStore.loading" class="loading-message">
-        Kullanıcılar yükleniyor...
+      <!-- Yüklenme Durumu (Kullanıcı Listesi ve Yayınlanmamış Gönderi Listesi İçin) -->
+      <div v-if="userStore.loading || postStore.loading" class="loading-message">
+        Veriler yükleniyor...
       </div>
 
       <!-- Hata Durumu (Kullanıcı Listesi İçin) -->
@@ -41,11 +41,11 @@
         <span class="error-text"> {{ userStore.error }}</span>
       </div>
 
-      <!-- Kullanıcı Listesi -->
+      <!-- Kullanıcı Yönetimi Bölümü -->
       <section class="user-management-section">
         <h2 class="section-title">Kullanıcı Yönetimi</h2>
         <div v-if="userStore.users.length === 0 && !userStore.loading">
-          <p class="no-users-message">Henüz kayıtlı kullanıcı bulunmamaktadır.</p>
+          <p class="no-data-message">Henüz kayıtlı kullanıcı bulunmamaktadır.</p>
         </div>
         <div v-else class="user-list">
           <div v-for="user in userStore.users" :key="user._id" class="user-card">
@@ -71,6 +71,37 @@
           </div>
         </div>
       </section>
+
+      <!-- Yayınlanmamış Gönderiler Bölümü -->
+      <section class="unpublished-posts-section">
+        <h2 class="section-title">Yayınlanmamış Gönderiler</h2>
+        <div v-if="postStore.unpublishedPosts.length === 0 && !postStore.loading">
+          <p class="no-data-message">Yayınlanmayı bekleyen gönderi bulunmamaktadır.</p>
+        </div>
+        <div v-else class="post-list">
+          <div v-for="post in postStore.unpublishedPosts" :key="post._id" class="post-card">
+            <div class="post-info">
+              <span class="info-label">Başlık:</span>
+              <span class="info-value">{{ post.title }}</span>
+            </div>
+            <div class="post-info">
+              <span class="info-label">Yazar:</span>
+              <span class="info-value">{{ post.author?.username || 'Bilinmiyor' }}</span>
+            </div>
+            <div class="post-info">
+              <span class="info-label">Oluşturulma:</span>
+              <span class="info-value">{{ new Date(post.createdAt).toLocaleDateString() }}</span>
+            </div>
+            <div class="post-actions">
+              <button @click="viewPost(post._id)" class="view-button">Görüntüle</button>
+              <button @click="approvePost(post)" :disabled="post.isApproving" class="approve-button">
+                {{ post.isApproving ? 'Onaylanıyor...' : 'Yayınla' }}
+              </button>
+              <button @click="confirmDeletePost(post)" class="delete-button">Sil</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -78,24 +109,34 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useUserStore } from '../stores/user';
+import { usePostStore } from '../stores/post'; // Post store'u içeri aktarın
 import { useAuthStore } from '../stores/auth';
+import { useRouter } from 'vue-router';
 
 const userStore = useUserStore();
+const postStore = usePostStore(); // Post store instance'ı
 const authStore = useAuthStore();
+const router = useRouter();
 
 onMounted(async () => {
   if (authStore.isAdmin) {
-    // Kullanıcı listesini ve istatistikleri aynı anda çek
+    // Kullanıcı listesini, istatistikleri ve yayınlanmamış gönderileri aynı anda çek
     await Promise.all([
       userStore.fetchUsers(),
-      userStore.fetchAdminStats()
+      userStore.fetchAdminStats(),
+      postStore.fetchUnpublishedPosts() // Yayınlanmamış gönderileri çek
     ]);
 
     userStore.users.forEach(user => {
       user.isSaving = false;
     });
+    postStore.unpublishedPosts.forEach(post => { // isApproving özelliği ekle
+      post.isApproving = false;
+    });
   } else {
-    userStore.error = "Bu sayfaya erişim yetkiniz yok.";
+    // Admin değilse router guard yönlendirmeli, ama yine de mesaj verelim
+    alert('Bu sayfaya erişim yetkiniz yok. Yönetici olarak giriş yapmalısınız.');
+    router.push('/');
   }
 });
 
@@ -122,6 +163,38 @@ const confirmDeleteUser = async (user) => {
       alert(`Kullanıcı ${user.username} başarıyla silindi.`);
     } catch (error) {
       alert(`Kullanıcı silinirken hata oluştu: ${error.message}`);
+    }
+  }
+};
+
+// Yeni fonksiyonlar: Gönderi Yönetimi için
+const viewPost = (postId) => {
+  router.push(`/posts/${postId}`); // Gönderi detay sayfasına yönlendir
+};
+
+const approvePost = async (post) => {
+  post.isApproving = true; // Onaylama durumunu başlat
+  try {
+    await postStore.updatePostPublicationStatus(post._id, true); // isPublished'ı true yap
+    alert(`Gönderi "${post.title}" başarıyla yayınlandı.`);
+    // İstatistikleri güncelle
+    await userStore.fetchAdminStats();
+  } catch (error) {
+    alert(`Gönderi yayınlanırken hata oluştu: ${error.message}`);
+  } finally {
+    post.isApproving = false; // Onaylama durumunu bitir
+  }
+};
+
+const confirmDeletePost = async (post) => {
+  if (confirm(`Gönderi "${post.title}" silinecek. Emin misiniz?`)) {
+    try {
+      await postStore.deletePost(post._id);
+      alert(`Gönderi "${post.title}" başarıyla silindi.`);
+      // İstatistikleri güncelle
+      await userStore.fetchAdminStats();
+    } catch (error) {
+      alert(`Gönderi silinirken hata oluştu: ${error.message}`);
     }
   }
 };
@@ -194,7 +267,7 @@ const confirmDeleteUser = async (user) => {
   display: block;
 }
 
-/* Yeni İstatistikler Bölümü Stilleri */
+/* İstatistikler Bölümü Stilleri */
 .stats-section {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -235,8 +308,9 @@ const confirmDeleteUser = async (user) => {
   color: #1e3a8a; /* Koyu mavi */
 }
 
-
-.user-management-section {
+/* Ortak Bölüm Stilleri */
+.user-management-section,
+.unpublished-posts-section {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 2rem;
@@ -253,13 +327,14 @@ const confirmDeleteUser = async (user) => {
   padding-bottom: 0.75rem;
 }
 
-.no-users-message {
+.no-data-message {
   text-align: center;
   color: #6b7280;
   font-style: italic;
   padding: 1rem;
 }
 
+/* Kullanıcı Listesi Stilleri */
 .user-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Responsive grid */
@@ -352,6 +427,88 @@ const confirmDeleteUser = async (user) => {
   transform: translateY(-1px);
 }
 
+/* Yayınlanmamış Gönderi Listesi Stilleri */
+.post-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.post-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.post-info {
+  display: flex;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.post-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.view-button,
+.approve-button,
+.post-card .delete-button { /* .post-card içindeki delete-button'ı hedefle */
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  flex-grow: 1; /* Butonların eşit genişlikte olmasını sağlar */
+  text-align: center;
+}
+
+.view-button {
+  background-color: #3b82f6; /* Mavi */
+  color: white;
+}
+
+.view-button:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.approve-button {
+  background-color: #10b981; /* Yeşil */
+  color: white;
+}
+
+.approve-button:hover:not(:disabled) {
+  background-color: #059669;
+  transform: translateY(-1px);
+}
+
+.approve-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* .post-card içindeki delete-button için özel stil */
+.post-card .delete-button {
+  background-color: #ef4444; /* Kırmızı */
+  color: white;
+}
+
+.post-card .delete-button:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+
 /* Responsive Styles */
 @media (max-width: 1024px) { /* Tabletler için */
   .dashboard-card {
@@ -364,7 +521,7 @@ const confirmDeleteUser = async (user) => {
   .section-title {
     font-size: 1.8rem;
   }
-  .user-list {
+  .user-list, .post-list {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
   .stats-grid {
@@ -392,21 +549,25 @@ const confirmDeleteUser = async (user) => {
     font-size: 1.6rem;
     margin-bottom: 1rem;
   }
-  .user-list {
+  .user-list, .post-list {
     grid-template-columns: 1fr; /* Tek sütun */
   }
-  .user-card {
+  .user-card, .post-card {
     padding: 1rem;
   }
   .info-label {
     width: 80px;
   }
-  .save-button, .delete-button {
+  .save-button, .delete-button, .view-button, .approve-button {
     font-size: 0.85rem;
     padding: 0.5rem 0.8rem;
   }
   .stat-value {
     font-size: 2rem;
+  }
+  .post-actions {
+    flex-direction: column; /* Mobil görünümde butonları alt alta sırala */
+    gap: 0.75rem;
   }
 }
 

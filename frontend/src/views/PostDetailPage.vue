@@ -3,27 +3,27 @@
     <div v-if="postStore.loading" class="loading-message">Yazı yükleniyor...</div>
     <div v-else-if="postStore.error" class="error-message">Hata: {{ postStore.error }}</div>
 
-    <div v-else-if="postStore.postDetail" class="post-card">
-      <h1 class="post-title">{{ postStore.postDetail.title }}</h1>
+    <div v-else-if="postStore.currentPost" class="post-card">
+      <h1 class="post-title">{{ postStore.currentPost.title }}</h1>
       <p class="post-meta">
-        Yazar: {{ postStore.postDetail.author?.username || 'Bilinmiyor' }} |
-        Tarih: {{ formatDate(postStore.postDetail.createdAt) }}
+        Yazar: {{ postStore.currentPost.author?.username || 'Bilinmiyor' }} |
+        Tarih: {{ formatDate(postStore.currentPost.createdAt) }}
       </p>
 
       <img
-        v-if="postStore.postDetail.image"
-        :src="getImageUrl(postStore.postDetail.image)"
-        :alt="postStore.postDetail.title"
+        v-if="postStore.currentPost.image"
+        :src="getImageUrl(postStore.currentPost.image)"
+        :alt="postStore.currentPost.title"
         class="blog-post-image"
       />
 
-      <div class="post-content-full">{{ postStore.postDetail.content }}</div>
+      <div class="post-content-full" v-html="postStore.currentPost.content"></div> <!-- DÜZELTİLDİ: v-html kullanıldı -->
 
       <div v-if="canModifyPost" class="post-actions">
-        <router-link :to="`/posts/${postStore.postDetail._id}/edit`" class="edit-button">
+        <router-link :to="`/posts/${postStore.currentPost._id}/edit`" class="edit-button">
           Düzenle
         </router-link>
-        <button @click="confirmDelete(postStore.postDetail._id, postStore.postDetail.title)" class="delete-button">Sil</button>
+        <button @click="confirmDelete(postStore.currentPost._id, postStore.currentPost.title)" class="delete-button">Sil</button>
       </div>
     </div>
     <div v-else class="no-post-message">
@@ -47,13 +47,10 @@ const authStore = useAuthStore();
 
 // Resim URL'sini oluşturan fonksiyon
 const getImageUrl = (imagePath) => {
-  // Backend'in URL'si ile resim yolunu birleştirin
-  // `imagePath` "/uploads/image-1753024506420.jpg" gibi geliyor.
   return `http://localhost:5000${imagePath}`;
 };
 
 // Watch kullanarak route.params.id değiştiğinde post'u tekrar yükle
-// Bu, bir post sayfasından başka bir post sayfasına doğrudan geçiş yapıldığında önemlidir.
 watch(() => route.params.id, (newId) => {
   if (newId) {
     postStore.fetchPostById(newId);
@@ -62,14 +59,12 @@ watch(() => route.params.id, (newId) => {
 
 // Kullanıcının yazıyı düzenleme/silme yetkisi olup olmadığını kontrol et
 const canModifyPost = computed(() => {
-  // Düzeltildi: postStore.selectedPost yerine postStore.postDetail kullanıldı
-  if (!authStore.isAuthenticated || !postStore.postDetail || !authStore.user) {
+  if (!authStore.isAuthenticated || !postStore.currentPost || !authStore.user) {
     return false;
   }
   // Yazının sahibi mi veya admin mi?
-  // Düzeltildi: postStore.selectedPost.author._id yerine postStore.postDetail.author._id
   return (
-    authStore.user._id === postStore.postDetail.author._id || authStore.isAdmin
+    authStore.user._id === postStore.currentPost.author._id || authStore.isAdmin
   );
 });
 
@@ -108,7 +103,6 @@ const formatDate = (dateString) => {
 
 .post-card {
   margin-bottom: 30px;
-  /* border-bottom: 1px solid #eee; */
   padding-bottom: 25px;
 }
 
@@ -209,14 +203,13 @@ const formatDate = (dateString) => {
   color: #faad14;
   border: 1px solid #ffe58f;
 }
-/* ... (Mevcut stilleriniz) ... */
 
 .blog-post-image {
-  max-width: 100%; /* Resmin div'den taşmasını engeller */
-  height: auto; /* Oranını korur */
-  display: block; /* Bloğun altında boşluk kalmaması için */
-  margin: 20px 0; /* Üstte ve altta boşluk bırakır */
-  border-radius: 8px; /* Köşeleri yuvarlar */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Hafif bir gölge verir */
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 20px 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 </style>
