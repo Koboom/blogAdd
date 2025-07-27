@@ -1,6 +1,4 @@
 # docker-compose.yml
-version: '3.8'
-
 # Tanımlanan servisler (uygulamanızın parçaları)
 services:
   # Backend servisi
@@ -34,9 +32,12 @@ services:
     # Ana makinedeki ./frontend klasörünü kapsayıcıdaki /app dizinine bağla
     volumes:
       - ./frontend:/app
+      - /app/node_modules
     # Frontend'in başlamadan önce backend'in başlamasını bekle
     depends_on:
       - backend
+
+    command: ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]
 
   # Veritabanı servisi (MongoDB)
   db:

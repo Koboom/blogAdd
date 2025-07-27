@@ -1,28 +1,32 @@
 # frontend/Dockerfile
 
-# Node.js 18 sürümünün tam imajını kullan (Alpine olmayan)
 FROM node:18
 
-# Çalışma dizinini /app olarak ayarla (konteyner içinde)
+# pnpm'i global olarak yükle
+RUN npm install -g pnpm
+
 WORKDIR /app
 
-# package.json ve package-lock.json dosyalarını konteynere kopyala
-COPY package*.json ./
+# package.json dosyasını kopyala
+COPY package.json ./
+# pnpm-lock.yaml varsa, onu da kopyala (eğer projenizde varsa)
+# COPY pnpm-lock.yaml ./
 
-# Bağımlılıkları yükle
-RUN rm -rf node_modules && npm cache clean --force
-RUN npm install --force
+# Bağımlılıkları pnpm ile yükle
+RUN pnpm install --force
 
-# *** Geçici Kontrol Satırı: npm install sonrası node_modules/.bin klasörünün içeriğini listele ***
-# Bu satırı build çıktısında görmek istiyoruz
-RUN ls -l node_modules/.bin/
-# ******************************************************************************************
+# *** BU SATIRI SİLİYORUZ (npm ve pnpm'i karıştırmamak için) ***
+# RUN npm install @rollup/rollup-linux-x64-gnu rollup rollup-plugin-node-resolve --save-dev
 
-# Geri kalan tüm uygulama kodunu kopyala
-COPY . .
+# Uygulama kodunun geri kalanını kopyala
+COPY ./public ./public
+COPY ./src ./src
+COPY ./index.html ./
+COPY ./vite.config.js ./
+# Eğer projenizde bir .env dosyası varsa (örneğin backend API adresi için):
+# COPY ./.env ./
 
-# Uygulamanın çalışacağı portu belirt
 EXPOSE 5173
 
-# UYGULAMAYI BAŞLAT: Vite'ı doğrudan node_modules/.bin/vite yolundan çalıştırıyoruz
-CMD ["/app/node_modules/.bin/vite"]
+# pnpm ile geliştirme sunucusunu çalıştır
+CMD ["pnpm", "run", "dev"]
