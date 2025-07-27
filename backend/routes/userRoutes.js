@@ -4,23 +4,24 @@ const express = require('express');
 const router = express.Router();
 const {
   getUsers,
-  getUserById, // İleride detay sayfası için eklenebilir
   updateUserRole,
-  deleteUser
-} = require('../controllers/userController'); // User controller fonksiyonlarını içeri aktar
-const { protect, authorizeRoles } = require('../middleware/authMiddleware'); // Kimlik doğrulama ve rol yetkilendirme middleware'lerini içeri aktar
+  deleteUser,
+  getAdminStats // Yeni fonksiyonu içeri aktarın
+} = require('../controllers/userController');
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 // Tüm kullanıcıları getir (sadece adminler erişebilir)
-// protect: Kullanıcının oturum açmış olmasını sağlar
-// authorizeRoles('admin'): Kullanıcının 'admin' rolüne sahip olmasını sağlar
 router.route('/').get(protect, authorizeRoles('admin'), getUsers);
 
+// Admin paneli istatistiklerini getir (sadece adminler erişebilir)
+// Bu rotayı diğer dinamik ID'li rotalardan önce tanımlamak iyi bir pratiktir,
+// aksi takdirde '/stats' '/:id' olarak algılanabilir.
+router.route('/stats').get(protect, authorizeRoles('admin'), getAdminStats);
+
 // Belirli bir kullanıcıyı ID'ye göre güncelle (rol güncelleme)
-// Sadece adminler erişebilir
 router.route('/:id/role').put(protect, authorizeRoles('admin'), updateUserRole);
 
 // Belirli bir kullanıcıyı sil
-// Sadece adminler erişebilir
 router.route('/:id').delete(protect, authorizeRoles('admin'), deleteUser);
 
 module.exports = router;

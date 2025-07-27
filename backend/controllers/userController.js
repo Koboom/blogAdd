@@ -1,15 +1,14 @@
 // backend/controllers/userController.js
 
-const asyncHandler = require('express-async-handler'); // Hataları yakalamak için
-const User = require('../models/User'); // User modelini içeri aktar
+const asyncHandler = require('express-async-handler');
+const User = require('../models/User');
+const Post = require('../models/Post'); // Post modelini içeri aktarın
 
 // @desc    Tüm kullanıcıları getir
 // @route   GET /api/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
-  // Şifre alanı hariç tüm kullanıcıları bul
   const users = await User.find({}).select('-password');
-
   res.status(200).json(users);
 });
 
@@ -17,20 +16,19 @@ const getUsers = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/:id/role
 // @access  Private/Admin
 const updateUserRole = asyncHandler(async (req, res) => {
-  const { id } = req.params; // Güncellenecek kullanıcının ID'si
-  const { role } = req.body; // Yeni rol
+  const { id } = req.params;
+  const { role } = req.body;
 
   const user = await User.findById(id);
 
   if (user) {
-    // Sadece 'user' veya 'admin' rolüne izin ver
     if (role !== 'user' && role !== 'admin') {
       res.status(400);
       throw new Error('Geçersiz rol belirtildi. Rol "user" veya "admin" olmalıdır.');
     }
 
     user.role = role;
-    await user.save(); // Kullanıcıyı kaydet
+    await user.save();
 
     res.status(200).json({
       _id: user._id,
@@ -48,18 +46,17 @@ const updateUserRole = asyncHandler(async (req, res) => {
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
 const deleteUser = asyncHandler(async (req, res) => {
-  const { id } = req.params; // Silinecek kullanıcının ID'si
+  const { id } = req.params;
 
   const user = await User.findById(id);
 
   if (user) {
-    // Adminin kendini silmesini engelle (opsiyonel ama iyi bir pratik)
     if (user._id.toString() === req.user.id.toString()) {
       res.status(400);
       throw new Error('Kendi hesabınızı silemezsiniz.');
     }
 
-    await user.deleteOne(); // Kullanıcıyı sil
+    await user.deleteOne();
     res.status(200).json({ message: 'Kullanıcı başarıyla silindi.' });
   } else {
     res.status(404);
@@ -67,8 +64,31 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Admin paneli istatistiklerini getir
+// @route   GET /api/users/stats
+// @access  Private/Admin
+const getAdminStats = asyncHandler(async (req, res) => {
+  // Toplam kullanıcı sayısını al
+  const totalUsers = await User.countDocuments();
+
+  // Toplam gönderi sayısını al
+  const totalPosts = await Post.countDocuments();
+
+  // Bekleyen (onaylanmamış) gönderi sayısını al
+  // Varsayım: Post modelinde 'isApproved' veya 'status' gibi bir alan var ve varsayılanı false/pending
+  // Eğer böyle bir alanınız yoksa, bu kısmı atlayabilir veya Post modelinize ekleyebilirsiniz.
+  const pendingPosts = await Post.countDocuments({ isApproved: false }); // isApproved alanı varsayımı
+
+  res.status(200).json({
+    totalUsers,
+    totalPosts,
+    pendingPosts,
+  });
+});
+
 module.exports = {
   getUsers,
   updateUserRole,
   deleteUser,
+  getAdminStats, // Yeni fonksiyonu dışa aktarın
 };
