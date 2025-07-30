@@ -5,7 +5,7 @@
         <router-link to="/">BlogApp</router-link>
       </div>
       <div class="navbar-links">
-        <router-link to="/">Anasayfa</router-link>
+        <router-link to="/">Home</router-link>
         <router-link v-if="authStore.isAuthenticated" to="/create">Create New Post</router-link>
         <router-link v-if="authStore.isAuthenticated" to="/profile">Profile</router-link>
         <router-link v-if="!authStore.isAuthenticated" to="/login">Login</router-link>
