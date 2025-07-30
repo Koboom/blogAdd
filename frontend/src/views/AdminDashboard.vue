@@ -1,30 +1,30 @@
 <template>
   <div class="admin-dashboard-container">
     <div class="dashboard-card">
-      <h1 class="main-title">Admin Paneli</h1>
-      <p class="subtitle">Kullanıcıları, gönderileri ve sistem ayarlarını buradan yönetin.</p>
+      <h1 class="main-title">Admin Panel</h1>
+      <p class="subtitle">Manage users, posts, and system settings here.</p>
 
       <!-- İstatistikler Bölümü -->
       <section class="stats-section">
-        <h2 class="section-title">Genel İstatistikler</h2>
+        <h2 class="section-title">General Statistics</h2>
         <div v-if="userStore.statsLoading" class="loading-message">
           İstatistikler yükleniyor...
         </div>
         <div v-else-if="userStore.statsError" class="error-alert">
-          <strong class="error-bold">Hata!</strong>
+          <strong class="error-bold">Mistake!</strong>
           <span class="error-text"> {{ userStore.statsError }}</span>
         </div>
         <div v-else class="stats-grid">
           <div class="stat-card">
-            <span class="stat-label">Toplam Kullanıcı Sayısı:</span>
+            <span class="stat-label">Total Number of Users:</span>
             <span class="stat-value">{{ userStore.adminStats.totalUsers }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Toplam Gönderi Sayısı:</span>
+            <span class="stat-label">Total Number of Posts:</span>
             <span class="stat-value">{{ userStore.adminStats.totalPosts }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-label">Yayınlanmamış Gönderi Sayısı:</span>
+            <span class="stat-label">Number of Unpublished Posts:</span>
             <span class="stat-value">{{ userStore.adminStats.unpublishedPosts }}</span>
           </div>
         </div>
