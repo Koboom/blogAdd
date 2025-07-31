@@ -176,25 +176,25 @@ const approvePost = async (post) => {
   post.isApproving = true; // Onaylama durumunu başlat
   try {
     await postStore.updatePostPublicationStatus(post._id, true); // isPublished'ı true yap
-    alert(`Gönderi "${post.title}" başarıyla yayınlandı.`);
+    alert(`The post "${post.title}" was published successfully.`);
     // İstatistikleri güncelle
     await userStore.fetchAdminStats();
   } catch (error) {
-    alert(`Gönderi yayınlanırken hata oluştu: ${error.message}`);
+    alert(`An error occurred while publishing the post: ${error.message}`);
   } finally {
     post.isApproving = false; // Onaylama durumunu bitir
   }
 };
 
 const confirmDeletePost = async (post) => {
-  if (confirm(`Gönderi "${post.title}" silinecek. Emin misiniz?`)) {
+  if (confirm(`Post "${post.title}" will be deleted. Are you sure?`)) {
     try {
       await postStore.deletePost(post._id);
-      alert(`Gönderi "${post.title}" başarıyla silindi.`);
+      alert(`Post "${post.title}" was deleted successfully.`);
       // İstatistikleri güncelle
       await userStore.fetchAdminStats();
     } catch (error) {
-      alert(`Gönderi silinirken hata oluştu: ${error.message}`);
+      alert(`An error occurred while deleting the post: ${error.message}`);
     }
   }
 };
