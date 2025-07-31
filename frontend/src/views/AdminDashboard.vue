@@ -37,46 +37,46 @@
 
       <!-- Hata Durumu (Kullanıcı Listesi İçin) -->
       <div v-if="userStore.error" class="error-alert">
-        <strong class="error-bold">Hata!</strong>
+        <strong class="error-bold">Mistake!</strong>
         <span class="error-text"> {{ userStore.error }}</span>
       </div>
 
       <!-- Kullanıcı Yönetimi Bölümü -->
       <section class="user-management-section">
-        <h2 class="section-title">Kullanıcı Yönetimi</h2>
+        <h2 class="section-title">User Management</h2>
         <div v-if="userStore.users.length === 0 && !userStore.loading">
-          <p class="no-data-message">Henüz kayıtlı kullanıcı bulunmamaktadır.</p>
+          <p class="no-data-message">There are no registered users yet.</p>
         </div>
         <div v-else class="user-list">
           <div v-for="user in userStore.users" :key="user._id" class="user-card">
             <div class="user-info">
-              <span class="info-label">Kullanıcı Adı:</span>
+              <span class="info-label">User name:</span>
               <span class="info-value">{{ user.username }}</span>
             </div>
             <div class="user-info">
-              <span class="info-label">E-posta:</span>
+              <span class="info-label">Email:</span>
               <span class="info-value">{{ user.email }}</span>
             </div>
             <div class="user-info">
-              <span class="info-label">Rol:</span>
+              <span class="info-label">Role:</span>
               <select v-model="user.role" @change="handleRoleChange(user)" class="role-select">
-                <option value="user">Kullanıcı</option>
+                <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
             <button @click="saveUserRole(user)" :disabled="user.isSaving" class="save-button">
-              {{ user.isSaving ? 'Kaydediliyor...' : 'Rolü Kaydet' }}
+              {{ user.isSaving ? 'Saving...' : 'Save Role' }}
             </button>
-            <button @click="confirmDeleteUser(user)" class="delete-button">Kullanıcıyı Sil</button>
+            <button @click="confirmDeleteUser(user)" class="delete-button">Delete User</button>
           </div>
         </div>
       </section>
 
       <!-- Yayınlanmamış Gönderiler Bölümü -->
       <section class="unpublished-posts-section">
-        <h2 class="section-title">Yayınlanmamış Gönderiler</h2>
+        <h2 class="section-title">Unpublished Posts</h2>
         <div v-if="postStore.unpublishedPosts.length === 0 && !postStore.loading">
-          <p class="no-data-message">Yayınlanmayı bekleyen gönderi bulunmamaktadır.</p>
+          <p class="no-data-message">There are no posts waiting to be published.</p>
         </div>
         <div v-else class="post-list">
           <div v-for="post in postStore.unpublishedPosts" :key="post._id" class="post-card">
