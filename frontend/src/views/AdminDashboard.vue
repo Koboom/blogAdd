@@ -81,21 +81,21 @@
         <div v-else class="post-list">
           <div v-for="post in postStore.unpublishedPosts" :key="post._id" class="post-card">
             <div class="post-info">
-              <span class="info-label">Başlık:</span>
+              <span class="info-label">Title:</span>
               <span class="info-value">{{ post.title }}</span>
             </div>
             <div class="post-info">
-              <span class="info-label">Yazar:</span>
+              <span class="info-label">Writer:</span>
               <span class="info-value">{{ post.author?.username || 'Bilinmiyor' }}</span>
             </div>
             <div class="post-info">
-              <span class="info-label">Oluşturulma:</span>
+              <span class="info-label">Creation:</span>
               <span class="info-value">{{ new Date(post.createdAt).toLocaleDateString() }}</span>
             </div>
             <div class="post-actions">
-              <button @click="viewPost(post._id)" class="view-button">Görüntüle</button>
+              <button @click="viewPost(post._id)" class="view-button">View</button>
               <button @click="approvePost(post)" :disabled="post.isApproving" class="approve-button">
-                {{ post.isApproving ? 'Onaylanıyor...' : 'Yayınla' }}
+                {{ post.isApproving ? 'Approving...' : 'Publish' }}
               </button>
               <button @click="confirmDeletePost(post)" class="delete-button">Sil</button>
             </div>
