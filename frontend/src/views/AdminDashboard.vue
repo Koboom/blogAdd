@@ -135,34 +135,34 @@ onMounted(async () => {
     });
   } else {
     // Admin değilse router guard yönlendirmeli, ama yine de mesaj verelim
-    alert('Bu sayfaya erişim yetkiniz yok. Yönetici olarak giriş yapmalısınız.');
+    alert('You do not have permission to access this page. You must log in as an administrator.');
     router.push('/');
   }
 });
 
 const handleRoleChange = (user) => {
-  console.log(`Kullanıcı ${user.username} için yeni rol: ${user.role}`);
+  console.log(`User ${user.username} new role for: ${user.role}`);
 };
 
 const saveUserRole = async (user) => {
   user.isSaving = true;
   try {
     await userStore.updateUserRole(user._id, user.role);
-    alert(`Kullanıcı ${user.username} rolü başarıyla güncellendi.`);
+    alert(`User ${user.username} role updated successfully.`);
   } catch (error) {
-    alert(`Kullanıcı rolü güncellenirken hata oluştu: ${error.message}`);
+    alert(`Error occurred while updating user role: ${error.message}`);
   } finally {
     user.isSaving = false;
   }
 };
 
 const confirmDeleteUser = async (user) => {
-  if (confirm(`Kullanıcı ${user.username} (${user.email}) silinecek. Emin misiniz?`)) {
+  if (confirm(`User ${user.username} (${user.email}) will be deleted. Are you sure?`)) {
     try {
       await userStore.deleteUser(user._id);
-      alert(`Kullanıcı ${user.username} başarıyla silindi.`);
+      alert(`User ${user.username} successfully deleted.`);
     } catch (error) {
-      alert(`Kullanıcı silinirken hata oluştu: ${error.message}`);
+      alert(`Error occurred while deleting user: ${error.message}`);
     }
   }
 };
