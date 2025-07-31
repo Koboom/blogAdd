@@ -8,7 +8,7 @@
       <section class="stats-section">
         <h2 class="section-title">General Statistics</h2>
         <div v-if="userStore.statsLoading" class="loading-message">
-          İstatistikler yükleniyor...
+          Loading statistics...
         </div>
         <div v-else-if="userStore.statsError" class="error-alert">
           <strong class="error-bold">Mistake!</strong>
@@ -32,7 +32,7 @@
 
       <!-- Yüklenme Durumu (Kullanıcı Listesi ve Yayınlanmamış Gönderi Listesi İçin) -->
       <div v-if="userStore.loading || postStore.loading" class="loading-message">
-        Veriler yükleniyor...
+        Loading data...
       </div>
 
       <!-- Hata Durumu (Kullanıcı Listesi İçin) -->
